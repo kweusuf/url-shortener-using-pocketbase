@@ -13,13 +13,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 // initDatabase creates the database table for storing URLs
 func initDatabase(app *pocketbase.PocketBase) error {
-	log.Println("Initializing database...")
+	log.Println(constants.InitializingDB)
 
 	// Check if table exists
 	exists, err := checkTableExists(app)
@@ -29,14 +30,14 @@ func initDatabase(app *pocketbase.PocketBase) error {
 	}
 
 	if !exists {
-		log.Println("Creating 'urls' table...")
+		log.Println(constants.IndexCreated)
 		if err := createURLsTable(app); err != nil {
 			log.Printf("Error creating URLs table: %v", err)
 			return err
 		}
-		log.Println("URLs table created successfully")
+		log.Println(constants.TableCreated)
 	} else {
-		log.Println("URLs table already exists, checking schema...")
+		log.Println(constants.TableExists)
 		// Validate table schema
 		valid, err := validateTableSchema(app)
 		if err != nil {
@@ -45,14 +46,14 @@ func initDatabase(app *pocketbase.PocketBase) error {
 		}
 
 		if !valid {
-			log.Println("Table schema is invalid, recreating table...")
+			log.Println(constants.TableSchemaInvalid)
 			if err := dropAndRecreateTable(app); err != nil {
 				log.Printf("Error recreating table: %v", err)
 				return err
 			}
-			log.Println("Table recreated successfully")
+			log.Println(constants.TableRecreated)
 		} else {
-			log.Println("Table schema is valid")
+			log.Println(constants.TableSchemaValid)
 		}
 	}
 
@@ -62,12 +63,12 @@ func initDatabase(app *pocketbase.PocketBase) error {
 		return err
 	}
 
-	log.Println("Database initialized successfully")
-	log.Println("NOTE: To see data in PocketBase dashboard:")
-	log.Println("1. Go to http://localhost:8091/_/")
-	log.Println("2. Create a new collection named 'urls'")
-	log.Println("3. Add fields: short_code (text), original_url (text), clicks (number)")
-	log.Println("4. The data will then be visible in the dashboard")
+	log.Println(constants.DatabaseInitialized)
+	log.Println(constants.DashboardNote)
+	log.Println(constants.DashboardStep1)
+	log.Println(constants.DashboardStep2)
+	log.Println(constants.DashboardStep3)
+	log.Println(constants.DashboardStep4)
 	return nil
 }
 
@@ -242,18 +243,18 @@ func startCleanupScheduler(app *pocketbase.PocketBase) {
 // getBaseURL returns the base URL for the application
 func getBaseURL() string {
 	// Check for environment variable first
-	if baseURL := os.Getenv("BASE_URL"); baseURL != "" {
+	if baseURL := os.Getenv(constants.EnvBaseURL); baseURL != "" {
 		return strings.TrimSuffix(baseURL, "/")
 	}
 
 	// Default to localhost for development
-	return "http://localhost:8090"
+	return constants.DefaultBaseURL
 }
 
 // getAPIBaseURL returns the API base URL for the application
 func getAPIBaseURL() string {
 	baseURL := getBaseURL()
-	return baseURL + "/api"
+	return baseURL + constants.APIBasePath
 }
 
 // getWebSocketURL returns the WebSocket URL for the application
@@ -261,10 +262,10 @@ func getWebSocketURL() string {
 	baseURL := getBaseURL()
 
 	// Convert HTTP to WS and HTTPS to WSS
-	if strings.HasPrefix(baseURL, "https://") {
-		return "wss://" + strings.TrimPrefix(baseURL, "https://") + "/ws"
+	if strings.HasPrefix(baseURL, constants.HTTPSProtocol) {
+		return constants.WSSProtocol + strings.TrimPrefix(baseURL, constants.HTTPSProtocol) + constants.WebSocketPath
 	}
-	return "ws://" + strings.TrimPrefix(baseURL, "http://") + "/ws"
+	return constants.WSProtocol + strings.TrimPrefix(baseURL, constants.HTTPProtocol) + constants.WebSocketPath
 }
 
 func main() {
@@ -298,8 +299,8 @@ func main() {
 		// Basic GET endpoint at /api/hello
 		e.Router.GET("/api/hello", func(e *core.RequestEvent) error {
 			return e.JSON(http.StatusOK, map[string]string{
-				"message": "Hello from PocketBase!",
-				"status":  "success",
+				constants.JSONMessage: constants.HelloMessage,
+				constants.JSONStatus:  constants.SuccessStatus,
 			})
 		})
 
@@ -316,22 +317,22 @@ func main() {
 
 			if err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to cleanup old URLs",
+					constants.JSONError: constants.CleanupErrorMsg,
 				})
 			}
 
 			rowsAffected, _ := result.RowsAffected()
 
 			// Set cache-busting headers
-			e.Response.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			e.Response.Header().Set("Pragma", "no-cache")
-			e.Response.Header().Set("Expires", "0")
+			e.Response.Header().Set(constants.CacheControl, constants.NoCache)
+			e.Response.Header().Set(constants.Pragma, constants.NoCache)
+			e.Response.Header().Set(constants.Expires, "0")
 
 			return e.JSON(http.StatusOK, map[string]interface{}{
-				"message":        "Cleanup completed",
-				"rows_deleted":   rowsAffected,
-				"cutoff_time":    cutoffTime.Format("2006-01-02 15:04:05"),
-				"cleanup_reason": "Manual cleanup triggered",
+				constants.JSONMessage:       constants.CleanupCompletedMsg,
+				constants.JSONRowsDeleted:   rowsAffected,
+				constants.JSONCutoffTime:    cutoffTime.Format(constants.TimeFormat),
+				constants.JSONCleanupReason: constants.ManualCleanup,
 			})
 		})
 
@@ -341,7 +342,7 @@ func main() {
 
 			if shortCode == "" {
 				return e.JSON(http.StatusNotFound, map[string]string{
-					"error": "Short code not provided",
+					constants.JSONError: constants.ShortCodeRequired,
 				})
 			}
 
@@ -349,7 +350,7 @@ func main() {
 			urlData, err := getURLFromDB(app, shortCode)
 			if err != nil || urlData == nil {
 				return e.JSON(http.StatusNotFound, map[string]string{
-					"error": "URL not found",
+					constants.JSONError: constants.URLNotFound,
 				})
 			}
 
@@ -358,7 +359,7 @@ func main() {
 			// Increment click count
 			if err := incrementClickCount(app, shortCode); err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to increment click count",
+					constants.JSONError: constants.IncrementError,
 				})
 			}
 
@@ -366,25 +367,25 @@ func main() {
 			updatedData, err := getURLFromDB(app, shortCode)
 			if err != nil || updatedData == nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to get updated data",
+					constants.JSONError: constants.DatabaseError,
 				})
 			}
 
 			newClicks := updatedData["clicks"].(int)
 
 			// Set aggressive cache-busting headers
-			e.Response.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate, max-age=0")
-			e.Response.Header().Set("Pragma", "no-cache")
-			e.Response.Header().Set("Expires", "0")
-			e.Response.Header().Set("Last-Modified", time.Now().Format(http.TimeFormat))
-			e.Response.Header().Set("X-Timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
+			e.Response.Header().Set(constants.CacheControl, constants.NoCacheMaxAge)
+			e.Response.Header().Set(constants.Pragma, constants.NoCache)
+			e.Response.Header().Set(constants.Expires, "0")
+			e.Response.Header().Set(constants.LastModified, time.Now().Format(http.TimeFormat))
+			e.Response.Header().Set(constants.XTimestamp, fmt.Sprintf("%d", time.Now().UnixNano()))
 
 			return e.JSON(http.StatusOK, map[string]interface{}{
-				"short_code":         shortCode,
-				"previous_clicks":    currentClicks,
-				"current_clicks":     newClicks,
-				"clicks_incremented": newClicks - currentClicks,
-				"test":               "Click count test successful",
+				constants.JSONShortCode:  shortCode,
+				constants.JSONPrevClicks: currentClicks,
+				constants.JSONCurrClicks: newClicks,
+				constants.JSONClicksInc:  newClicks - currentClicks,
+				constants.JSONTest:       constants.TestMessage,
 			})
 		})
 
@@ -394,7 +395,7 @@ func main() {
 
 			if shortCode == "" {
 				return e.JSON(http.StatusNotFound, map[string]string{
-					"error": "Short code not provided",
+					constants.JSONError: constants.ShortCodeRequired,
 				})
 			}
 
@@ -402,20 +403,20 @@ func main() {
 			urlData, err := getURLFromDB(app, shortCode)
 			if err == nil && urlData != nil {
 				// Set cache-busting headers
-				e.Response.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-				e.Response.Header().Set("Pragma", "no-cache")
-				e.Response.Header().Set("Expires", "0")
+				e.Response.Header().Set(constants.CacheControl, constants.NoCache)
+				e.Response.Header().Set(constants.Pragma, constants.NoCache)
+				e.Response.Header().Set(constants.Expires, "0")
 
 				return e.JSON(http.StatusOK, map[string]interface{}{
-					"short_code":   shortCode,
-					"original_url": urlData["original_url"].(string),
-					"clicks":       urlData["clicks"].(int),
-					"created":      urlData["created"].(time.Time).Format("2006-01-02 15:04:05"),
+					constants.JSONShortCode:   shortCode,
+					constants.JSONOriginalURL: urlData["original_url"].(string),
+					constants.JSONClicks:      urlData["clicks"].(int),
+					constants.JSONCreated:     urlData["created"].(time.Time).Format(constants.TimeFormat),
 				})
 			}
 
 			return e.JSON(http.StatusNotFound, map[string]string{
-				"error": "URL not found",
+				constants.JSONError: constants.URLNotFound,
 			})
 		})
 
@@ -425,14 +426,14 @@ func main() {
 			recentURLs, err := getRecentURLsFromDB(app, 5)
 			if err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to fetch recent URLs",
+					constants.JSONError: constants.FetchURLError,
 				})
 			}
 
 			// Set cache-busting headers
-			e.Response.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			e.Response.Header().Set("Pragma", "no-cache")
-			e.Response.Header().Set("Expires", "0")
+			e.Response.Header().Set(constants.CacheControl, constants.NoCache)
+			e.Response.Header().Set(constants.Pragma, constants.NoCache)
+			e.Response.Header().Set(constants.Expires, "0")
 
 			return e.JSON(http.StatusOK, map[string]interface{}{
 				"urls": recentURLs,
@@ -447,13 +448,13 @@ func main() {
 
 			if err := e.BindBody(&data); err != nil {
 				return e.JSON(http.StatusBadRequest, map[string]string{
-					"error": "Invalid JSON data",
+					constants.JSONError: constants.InvalidJSON,
 				})
 			}
 
 			if data.URL == "" {
 				return e.JSON(http.StatusBadRequest, map[string]string{
-					"error": "URL is required",
+					constants.JSONError: constants.URLRequired,
 				})
 			}
 
@@ -461,23 +462,23 @@ func main() {
 			parsedURL, err := url.Parse(data.URL)
 			if err != nil {
 				return e.JSON(http.StatusBadRequest, map[string]string{
-					"error": "Invalid URL format",
+					constants.JSONError: constants.InvalidURLFormat,
 				})
 			}
 
 			// Add https:// protocol if missing
 			if parsedURL.Scheme == "" {
 				// Check if it looks like it has a protocol but is missing
-				if strings.HasPrefix(data.URL, "http://") || strings.HasPrefix(data.URL, "https://") {
+				if strings.HasPrefix(data.URL, constants.HTTPProtocol) || strings.HasPrefix(data.URL, constants.HTTPSProtocol) {
 					return e.JSON(http.StatusBadRequest, map[string]string{
-						"error": "Invalid URL format",
+						constants.JSONError: constants.InvalidURLFormat,
 					})
 				}
 				// Add https:// protocol for bare URLs
-				data.URL = "https://" + data.URL
+				data.URL = constants.DefaultProtocol + data.URL
 			} else if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 				return e.JSON(http.StatusBadRequest, map[string]string{
-					"error": "Only HTTP and HTTPS protocols are supported",
+					constants.JSONError: constants.HTTPSOnly,
 				})
 			}
 
@@ -488,7 +489,7 @@ func main() {
 			err = storeURLInDB(app, shortCode, data.URL)
 			if err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to store URL",
+					constants.JSONError: constants.StoreURLError,
 				})
 			}
 
@@ -499,9 +500,9 @@ func main() {
 
 			baseURL := getBaseURL()
 			return e.JSON(http.StatusCreated, map[string]interface{}{
-				"original_url": data.URL,
-				"short_code":   shortCode,
-				"short_url":    baseURL + "/" + shortCode,
+				constants.JSONOriginalURL: data.URL,
+				constants.JSONShortCode:   shortCode,
+				constants.JSONShortURL:    baseURL + "/" + shortCode,
 			})
 		})
 
@@ -734,7 +735,7 @@ func generateShortCode() string {
 
 // encodeBase62 encodes a number to base62 string
 func encodeBase62(n uint32) string {
-	const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	const charset = constants.Base62Charset
 	const base = uint32(len(charset))
 
 	if n == 0 {
@@ -761,12 +762,12 @@ func generatePocketBaseID() string {
 	bytes := make([]byte, 7)
 	if _, err := rand.Read(bytes); err != nil {
 		// Fallback to timestamp-based ID
-		return fmt.Sprintf("r%07x", time.Now().UnixNano()%0x10000000)
+		return constants.PBIDPrefix + fmt.Sprintf("%07x", time.Now().UnixNano()%0x10000000)
 	}
 
 	// Convert to hex and lowercase
 	hexStr := fmt.Sprintf("%014x", bytes)
-	return "r" + strings.ToLower(hexStr)
+	return constants.PBIDPrefix + strings.ToLower(hexStr)
 }
 
 // WebSocket upgrader
@@ -839,22 +840,22 @@ func (h *Hub) Run() {
 // BroadcastStatsUpdate broadcasts a stats update to all connected clients
 func (h *Hub) BroadcastStatsUpdate(shortCode string, clicks int) {
 	update := map[string]interface{}{
-		"type":       "stats_update",
-		"short_code": shortCode,
-		"clicks":     clicks,
-		"timestamp":  time.Now().Unix(),
+		constants.WSMessageType: constants.WSStatsUpdate,
+		constants.WSShortCode:   shortCode,
+		constants.WSClicks:      clicks,
+		constants.WSTimestamp:   time.Now().Unix(),
 	}
 
 	message, err := json.Marshal(update)
 	if err != nil {
-		log.Printf("Error marshaling stats update: %v", err)
+		log.Printf(constants.WSMarshalError+" %v", err)
 		return
 	}
 
 	select {
 	case h.Broadcast <- message:
 	default:
-		log.Println("Broadcast channel is full, skipping message")
+		log.Println(constants.WSBroadcastFull)
 	}
 }
 
@@ -873,7 +874,7 @@ type WSMessage struct {
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
+		log.Printf(constants.WSUpgradeError+" %v", err)
 		return
 	}
 
@@ -909,7 +910,7 @@ func (c *Client) writePump() {
 			}
 
 			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				log.Printf("WebSocket write error: %v", err)
+				log.Printf(constants.WSWriteError+" %v", err)
 				return
 			}
 		}
@@ -927,7 +928,7 @@ func (c *Client) readPump() {
 		_, _, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket read error: %v", err)
+				log.Printf(constants.WSReadError+" %v", err)
 			}
 			break
 		}
