@@ -8,7 +8,7 @@ help: ## Show this help message
 	@echo "URL Shortener with PocketBase - Available commands:"
 	@echo ""
 	@echo "🐳 Docker Commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E "^(build:|run:|stop:|clean:|logs:)" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E "^(build:|rebuild:|run:|stop:|clean:|logs:|push)" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "💻 Development Commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E "(local-|test|fmt:|setup:|deps:)" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[32m%-15s\033[0m %s\n", $$1, $$2}'
@@ -23,7 +23,11 @@ COMPOSE_TOOL := $(shell which docker-compose 2>/dev/null || which podman-compose
 
 build: ## Build the container image
 	@echo "Building container image using $(CONTAINER_TOOL)..."
-	$(CONTAINER_TOOL) build -t url-shortener-pocketbase .
+	$(CONTAINER_TOOL) build --platform=linux/amd64 -t url-shortener-pocketbase .
+
+rebuild: ## Rebuild the container image (clean build)
+	@echo "Rebuilding container image from scratch..."
+	$(CONTAINER_TOOL) build --platform=linux/amd64 --no-cache -t url-shortener-pocketbase .
 
 run: ## Run the application with container compose
 	@echo "Starting application using $(COMPOSE_TOOL)..."
@@ -97,6 +101,26 @@ setup: ## Initial setup
 	@echo "Building application..."
 	@$(MAKE) build
 	@echo "Setup complete! Run 'make run' to start the application"
+
+# =================================================================
+# DEPLOYMENT COMMANDS
+# =================================================================
+
+push: ## Push image to Docker Hub (requires USERNAME and TAG variables)
+	@if [ -z "$(USERNAME)" ]; then \
+		echo "Error: Please set USERNAME variable"; \
+		echo "Usage: make push USERNAME=your-dockerhub-username [TAG=latest]"; \
+		exit 1; \
+	fi
+	@$(eval TAG ?= latest)
+	@echo "Tagging and pushing image to Docker Hub..."
+	$(CONTAINER_TOOL) tag url-shortener-pocketbase $(USERNAME)/url-shortener-pocketbase:$(TAG)
+	$(CONTAINER_TOOL) push $(USERNAME)/url-shortener-pocketbase:$(TAG)
+	@echo "✅ Image pushed successfully!"
+	@echo "Pull command: docker pull $(USERNAME)/url-shortener-pocketbase:$(TAG)"
+
+push-latest: ## Push image with 'latest' tag to Docker Hub
+	@$(MAKE) push USERNAME=$(USERNAME) TAG=latest
 
 # Default make target
 .DEFAULT_GOAL := help
