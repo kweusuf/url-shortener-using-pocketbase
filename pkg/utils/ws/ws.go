@@ -67,20 +67,15 @@ func (c *Client) WritePump(hub *Hub) {
 		hub.Unregister <- c
 	}()
 
-	for {
-		select {
-		case message, ok := <-c.Send:
-			if !ok {
-				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				log.Printf(constants.WSWriteError+" %v", err)
-				return
-			}
+	for message := range c.Send {
+		if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			log.Printf(constants.WSWriteError+" %v", err)
+			return
 		}
 	}
+
+	// Channel closed, send close message
+	c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub

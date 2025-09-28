@@ -18,23 +18,6 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// getAPIBaseURL returns the API base URL for the application
-func getAPIBaseURL() string {
-	baseURL := urlutil.GetBaseURL()
-	return baseURL + constants.APIBasePath
-}
-
-// getWebSocketURL returns the WebSocket URL for the application
-func getWebSocketURL() string {
-	baseURL := urlutil.GetBaseURL()
-
-	// Convert HTTP to WS and HTTPS to WSS
-	if strings.HasPrefix(baseURL, constants.HTTPSProtocol) {
-		return constants.WSSProtocol + strings.TrimPrefix(baseURL, constants.HTTPSProtocol) + constants.WebSocketPath
-	}
-	return constants.WSProtocol + strings.TrimPrefix(baseURL, constants.HTTPProtocol) + constants.WebSocketPath
-}
-
 func main() {
 	app := pocketbase.New()
 
