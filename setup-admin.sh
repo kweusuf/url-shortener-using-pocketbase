@@ -4,7 +4,7 @@
 # This script will be run on container startup to handle admin setup
 
 PB_DATA_DIR="/app/pb_data"
-PB_BINARY="./pocketbase-demo"
+PB_BINARY="./url-shortener"
 
 # Function to check if admin user exists
 admin_exists() {

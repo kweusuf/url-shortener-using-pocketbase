@@ -20,7 +20,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
-    -o pocketbase-demo .
+    -o url-shortener .
 
 # Final stage
 FROM alpine:latest
@@ -34,7 +34,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app/
 
 # Copy the binary from builder stage
-COPY --from=builder /app/pocketbase-demo .
+COPY --from=builder /app/url-shortener .
 
 # Copy static files
 COPY --chown=appuser:appgroup index.html .

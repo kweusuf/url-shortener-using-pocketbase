@@ -79,7 +79,7 @@ uploads/
 *_test.go
 *.test
 *.out
-pocketbase-demo
+url-shortener
 
 # Go build cache
 .cache/
