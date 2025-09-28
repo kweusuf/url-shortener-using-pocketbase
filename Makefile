@@ -159,9 +159,41 @@ deps: ## Install development dependencies (if needed)
 	@echo "All dependencies are installed."
 
 # Test targets
-test: ## Run tests (if applicable)
-	@echo "Running tests..."
-	@echo "Note: Add actual test commands here when tests are implemented"
+test: ## Run all tests
+	@echo "Running all tests..."
+	go test ./...
+
+test-verbose: ## Run all tests with verbose output
+	@echo "Running all tests (verbose)..."
+	go test -v ./...
+
+test-coverage: ## Run tests with coverage analysis
+	@echo "Running tests with coverage..."
+	go test -cover ./...
+
+test-generator: ## Run generator utility tests
+	@echo "Running generator tests..."
+	go test -v ./pkg/utils/generator/...
+
+test-url: ## Run URL utility tests
+	@echo "Running URL utility tests..."
+	go test -v ./pkg/utils/url/...
+
+test-db: ## Run database utility tests
+	@echo "Running database utility tests..."
+	go test -v ./pkg/utils/db/...
+
+test-ws: ## Run WebSocket utility tests
+	@echo "Running WebSocket utility tests..."
+	go test -v ./pkg/utils/ws/...
+
+test-transport: ## Run transport layer tests
+	@echo "Running transport layer tests..."
+	go test -v ./transport/ws/...
+
+test-monitoring: ## Run monitoring utility tests
+	@echo "Running monitoring utility tests..."
+	go test -v ./pkg/utils/monitoring/...
 
 test-health: ## Test if the application is healthy
 	@echo "Testing application health..."
@@ -172,6 +204,36 @@ test-health: ## Test if the application is healthy
 		echo "❌ Application is not responding"; \
 		exit 1; \
 	fi
+
+test-coverage-html: ## Generate HTML coverage report
+	@echo "Generating HTML coverage report..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+test-bench: ## Run benchmark tests
+	@echo "Running benchmark tests..."
+	go test -bench=. ./...
+
+test-bench-generator: ## Run generator benchmarks
+	@echo "Running generator benchmarks..."
+	go test -bench=. ./pkg/utils/generator/...
+
+test-bench-url: ## Run URL utility benchmarks
+	@echo "Running URL utility benchmarks..."
+	go test -bench=. ./pkg/utils/url/...
+
+test-bench-ws: ## Run WebSocket benchmarks
+	@echo "Running WebSocket benchmarks..."
+	go test -bench=. ./pkg/utils/ws/...
+
+test-race: ## Run tests with race detection
+	@echo "Running tests with race detection..."
+	go test -race ./...
+
+test-clean: ## Clean test artifacts
+	@echo "Cleaning test artifacts..."
+	rm -f coverage.out coverage.html
 
 # Update targets
 update: ## Update the application (build new image and restart)

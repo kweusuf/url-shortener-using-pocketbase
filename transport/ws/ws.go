@@ -17,8 +17,21 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// InitializeWebSocket initializes the WebSocket hub
+func InitializeWebSocket() {
+	// Start the global hub if it's not already running
+	// The GlobalHub is already initialized as a global variable
+	// We just need to make sure it's running
+	go func() {
+		wsutil.GlobalHub.Run()
+	}()
+}
+
 // HandleWebSocket handles WebSocket connections
 func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Ensure WebSocket hub is initialized
+	InitializeWebSocket()
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf(constants.WSUpgradeError+" %v", err)
