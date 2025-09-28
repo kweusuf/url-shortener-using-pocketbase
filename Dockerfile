@@ -1,27 +1,26 @@
 # Build stage
-FROM golang:latest AS builder
+FROM golang:alpine AS builder
 
-# Install necessary packages
-RUN apt-get update && apt-get install -y \
-    git \
-    ca-certificates \
-    tzdata \
-    && rm -rf /var/lib/apt/lists/*
+# Install necessary packages for building
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
+# Download dependencies (cached if go.mod/go.sum don't change)
+RUN go mod download && go mod verify
 
-# Copy source code
+# Copy source code (cached if source files don't change)
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pocketbase-demo .
+# Build the application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o pocketbase-demo .
 
 # Final stage
 FROM alpine:latest
