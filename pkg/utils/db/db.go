@@ -66,15 +66,15 @@ func InitDatabase(app *pocketbase.PocketBase) error {
 
 // checkTableExists checks if the urls table exists
 func checkTableExists(app *pocketbase.PocketBase) (bool, error) {
-	return app.HasTable("urls"), nil
+	return app.HasTable(constants.TableName), nil
 }
 
 // validateTableSchema checks if the table has the correct structure
 func validateTableSchema(app *pocketbase.PocketBase) (bool, error) {
-	requiredColumns := []string{"id", "short_code", "original_url", "clicks", "created", "updated"}
+	requiredColumns := []string{constants.ColumnID, constants.ColumnShortCode, constants.ColumnOriginalURL, constants.ColumnClicks, constants.ColumnCreated, constants.ColumnUpdated}
 
 	// Get the collection to check its fields programmatically
-	collection, err := app.FindCollectionByNameOrId("urls")
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
 		return false, err
 	}
@@ -98,36 +98,36 @@ func validateTableSchema(app *pocketbase.PocketBase) (bool, error) {
 
 // createURLsTable creates the URLs table with correct structure
 func createURLsTable(app *pocketbase.PocketBase) error {
-	collection := core.NewBaseCollection("urls")
+	collection := core.NewBaseCollection(constants.TableName)
 	// add text field
 	collection.Fields.Add(
 		&core.TextField{
-			Name:       "id",
+			Name:       constants.ColumnID,
 			Required:   true,
 			PrimaryKey: true,
 		},
 		&core.TextField{
-			Name:     "short_code",
+			Name:     constants.ColumnShortCode,
 			Required: true,
 		},
 		&core.TextField{
-			Name:     "original_url",
+			Name:     constants.ColumnOriginalURL,
 			Required: true,
 		},
 		&core.NumberField{
-			Name:     "clicks",
+			Name:     constants.ColumnClicks,
 			Required: true,
 		},
 		&core.AutodateField{
-			Name:     "created",
+			Name:     constants.ColumnCreated,
 			OnCreate: true,
 		},
 		&core.AutodateField{
-			Name:     "updated",
+			Name:     constants.ColumnUpdated,
 			OnCreate: true,
 		},
 	)
-	collection.AddIndex("idx_urls_short_code", true, "short_code", "")
+	collection.AddIndex(constants.IndexName, true, constants.ColumnShortCode, "")
 
 	err := app.Save(collection)
 
@@ -137,7 +137,7 @@ func createURLsTable(app *pocketbase.PocketBase) error {
 // dropAndRecreateTable drops and recreates the table
 func dropAndRecreateTable(app *pocketbase.PocketBase) error {
 	// Drop the table
-	_, err := app.DB().NewQuery(`DROP TABLE IF EXISTS urls`).Execute()
+	_, err := app.DB().NewQuery(`DROP TABLE IF EXISTS ` + constants.TableName).Execute()
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func dropAndRecreateTable(app *pocketbase.PocketBase) error {
 // createIndexIfNotExists creates the index if it doesn't exist
 func createIndexIfNotExists(app *pocketbase.PocketBase) error {
 	// Get the collection to check its indexes programmatically
-	collection, err := app.FindCollectionByNameOrId("urls")
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func createIndexIfNotExists(app *pocketbase.PocketBase) error {
 	// Check if index already exists
 	indexExists := false
 	for _, index := range collection.Indexes {
-		if index == "idx_urls_short_code" {
+		if index == constants.IndexName {
 			indexExists = true
 			break
 		}
@@ -165,7 +165,7 @@ func createIndexIfNotExists(app *pocketbase.PocketBase) error {
 
 	if !indexExists {
 		log.Println("Creating index on short_code...")
-		collection.AddIndex("idx_urls_short_code", true, "short_code", "")
+		collection.AddIndex(constants.IndexName, true, constants.ColumnShortCode, "")
 		err = app.Save(collection)
 		return err
 	}
@@ -179,7 +179,7 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 	cutoffTime := time.Now().UTC().Add(-1 * time.Hour)
 
 	// Get the collection to work with records programmatically
-	collection, err := app.FindCollectionByNameOrId("urls")
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
 		return err
 	}
@@ -187,12 +187,12 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 	// Find old records using PocketBase's record API
 	records, err := app.FindRecordsByFilter(
 		collection,
-		"updated < {:cutoffTime}",
-		"-created", // Order by created descending to delete oldest first
-		500,        // Limit to 500 records per batch
-		0,          // Offset
+		constants.UpdatedFilter,
+		constants.CreatedSortDesc,
+		constants.RecordBatchSize,
+		constants.NoOffset,
 		map[string]interface{}{
-			"cutoffTime": cutoffTime.Format("2006-01-02 15:04:05"),
+			constants.ParamCutoffTime: cutoffTime.Format(constants.TimeFormat),
 		},
 	)
 	if err != nil {
@@ -221,14 +221,14 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 func StoreURLInDB(app *pocketbase.PocketBase, shortCode, originalURL string) error {
 	// Use the table structure created by initDatabase
 	_, err := app.DB().NewQuery(`
-		INSERT OR REPLACE INTO urls (short_code, original_url, clicks, created, updated)
-		VALUES ({:shortCode}, {:originalURL}, {:clicks}, {:createdAt}, {:updatedAt})
+		INSERT OR REPLACE INTO ` + constants.TableName + ` (` + constants.ColumnShortCode + `, ` + constants.ColumnOriginalURL + `, ` + constants.ColumnClicks + `, ` + constants.ColumnCreated + `, ` + constants.ColumnUpdated + `)
+		VALUES ({:` + constants.ParamShortCode + `}, {:` + constants.ParamOriginalURL + `}, {:` + constants.ParamClicks + `}, {:` + constants.ParamCreatedAt + `}, {:` + constants.ParamUpdatedAt + `})
 	`).Bind(map[string]interface{}{
-		"shortCode":   shortCode,
-		"originalURL": originalURL,
-		"clicks":      0,
-		"createdAt":   time.Now().UTC().Format("2006-01-02 15:04:05"),
-		"updatedAt":   time.Now().UTC().Format("2006-01-02 15:04:05"),
+		constants.ParamShortCode:   shortCode,
+		constants.ParamOriginalURL: originalURL,
+		constants.ParamClicks:      0,
+		constants.ParamCreatedAt:   time.Now().UTC().Format(constants.TimeFormat),
+		constants.ParamUpdatedAt:   time.Now().UTC().Format(constants.TimeFormat),
 	}).Execute()
 
 	return err
@@ -237,7 +237,7 @@ func StoreURLInDB(app *pocketbase.PocketBase, shortCode, originalURL string) err
 // GetURLFromDB retrieves URL data from PocketBase database
 func GetURLFromDB(app *pocketbase.PocketBase, shortCode string) (map[string]interface{}, error) {
 	// Get the collection to work with records programmatically
-	collection, err := app.FindCollectionByNameOrId("urls")
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
 		return nil, err
 	}
@@ -245,9 +245,9 @@ func GetURLFromDB(app *pocketbase.PocketBase, shortCode string) (map[string]inte
 	// Find the record using PocketBase's record API
 	record, err := app.FindFirstRecordByFilter(
 		collection,
-		"short_code = {:shortCode}",
+		constants.ShortCodeFilter,
 		map[string]interface{}{
-			"shortCode": shortCode,
+			constants.ParamShortCode: shortCode,
 		},
 	)
 	if err != nil {
@@ -255,27 +255,27 @@ func GetURLFromDB(app *pocketbase.PocketBase, shortCode string) (map[string]inte
 	}
 
 	// Parse the created timestamp
-	createdAt, err := time.Parse("2006-01-02 15:04:05", record.GetString("created"))
+	createdAt, err := time.Parse(constants.TimeFormat, record.GetString(constants.ColumnCreated))
 	if err != nil {
 		// If parsing fails, use current time
 		createdAt = time.Now().UTC()
 	} else {
-		createdAt, _ = time.Parse("2006-01-02 15:04:05", record.GetString("created"))
+		createdAt, _ = time.Parse(constants.TimeFormat, record.GetString(constants.ColumnCreated))
 	}
 
 	return map[string]interface{}{
-		"id":           record.Id,
-		"original_url": record.GetString("original_url"),
-		"short_code":   shortCode,
-		"clicks":       record.GetInt("clicks"),
-		"created":      createdAt,
+		constants.ResponseID:          record.Id,
+		constants.ResponseOriginalURL: record.GetString(constants.ColumnOriginalURL),
+		constants.ResponseShortCode:   shortCode,
+		constants.ResponseClicks:      record.GetInt(constants.ColumnClicks),
+		constants.ResponseCreated:     createdAt,
 	}, nil
 }
 
 // IncrementClickCount increments the click count for a short code
 func IncrementClickCount(app *pocketbase.PocketBase, shortCode string) error {
 	// Get the collection to work with records programmatically
-	collection, err := app.FindCollectionByNameOrId("urls")
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
 		return err
 	}
@@ -283,9 +283,9 @@ func IncrementClickCount(app *pocketbase.PocketBase, shortCode string) error {
 	// Find the record using PocketBase's record API
 	record, err := app.FindFirstRecordByFilter(
 		collection,
-		"short_code = {:shortCode}",
+		constants.ShortCodeFilter,
 		map[string]interface{}{
-			"shortCode": shortCode,
+			constants.ParamShortCode: shortCode,
 		},
 	)
 	if err != nil {
@@ -293,8 +293,8 @@ func IncrementClickCount(app *pocketbase.PocketBase, shortCode string) error {
 	}
 
 	// Increment the click count and update the timestamp programmatically
-	record.Set("clicks", record.GetInt("clicks")+1)
-	record.Set("updated", time.Now().UTC().Format("2006-01-02 15:04:05"))
+	record.Set(constants.ColumnClicks, record.GetInt(constants.ColumnClicks)+1)
+	record.Set(constants.ColumnUpdated, time.Now().UTC().Format(constants.TimeFormat))
 
 	// Save the updated record
 	err = app.Save(record)
@@ -304,7 +304,7 @@ func IncrementClickCount(app *pocketbase.PocketBase, shortCode string) error {
 // GetRecentURLsFromDB retrieves the last N URLs from the database
 func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int) ([]map[string]interface{}, error) {
 	// Get the collection to work with records programmatically
-	collection, err := app.FindCollectionByNameOrId("urls")
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
 		return nil, err
 	}
@@ -312,10 +312,10 @@ func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int) ([]map[string]in
 	// Find recent records using PocketBase's record API with sorting and limit
 	records, err := app.FindRecordsByFilter(
 		collection,
-		"",         // No filter, get all records
-		"-created", // Order by created descending (most recent first)
-		limit,      // Limit to specified number of records
-		0,          // Offset
+		constants.NoFilter,
+		constants.CreatedSortDesc,
+		limit,
+		constants.NoOffset,
 	)
 	if err != nil {
 		log.Printf("Database error in getRecentURLsFromDB: %v", err)
@@ -327,19 +327,19 @@ func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int) ([]map[string]in
 	baseURL := url.GetBaseURL()
 	for _, record := range records {
 		// Parse the created timestamp
-		createdAt, err := time.Parse("2006-01-02 15:04:05", record.GetString("created"))
+		createdAt, err := time.Parse(constants.TimeFormat, record.GetString(constants.ColumnCreated))
 		if err != nil {
-			log.Printf("Error parsing created timestamp %s: %v", record.GetString("created"), err)
+			log.Printf("Error parsing created timestamp %s: %v", record.GetString(constants.ColumnCreated), err)
 			createdAt = time.Now().UTC()
 		}
 
 		urlData := map[string]interface{}{
-			"id":           record.Id,
-			"short_code":   record.GetString("short_code"),
-			"original_url": record.GetString("original_url"),
-			"clicks":       record.GetInt("clicks"),
-			"created":      createdAt.Format("2006-01-02 15:04:05"),
-			"short_url":    baseURL + "/" + record.GetString("short_code"),
+			constants.ResponseID:          record.Id,
+			constants.ResponseShortCode:   record.GetString(constants.ColumnShortCode),
+			constants.ResponseOriginalURL: record.GetString(constants.ColumnOriginalURL),
+			constants.ResponseClicks:      record.GetInt(constants.ColumnClicks),
+			constants.ResponseCreated:     createdAt.Format(constants.TimeFormat),
+			constants.ResponseShortURL:    baseURL + "/" + record.GetString(constants.ColumnShortCode),
 		}
 		urls = append(urls, urlData)
 	}

@@ -29,7 +29,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	client := &wsutil.Client{
 		ID:   clientID,
 		Conn: conn,
-		Send: make(chan []byte, 256),
+		Send: make(chan []byte, constants.LargeBatchSize),
 	}
 
 	wsutil.GlobalHub.Register <- client

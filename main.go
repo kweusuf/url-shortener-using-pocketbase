@@ -48,7 +48,7 @@ func main() {
 
 		// Basic GET endpoint at /api/hello
 		e.Router.GET("/api/hello", func(e *core.RequestEvent) error {
-			return e.JSON(http.StatusOK, map[string]string{
+			return e.JSON(constants.HTTPStatusOK, map[string]string{
 				constants.JSONMessage: constants.HelloMessage,
 				constants.JSONStatus:  constants.SuccessStatus,
 			})
@@ -66,7 +66,7 @@ func main() {
 			}).Execute()
 
 			if err != nil {
-				return e.JSON(http.StatusInternalServerError, map[string]string{
+				return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
 					constants.JSONError: constants.CleanupErrorMsg,
 				})
 			}
@@ -76,9 +76,9 @@ func main() {
 			// Set cache-busting headers
 			e.Response.Header().Set(constants.CacheControl, constants.NoCache)
 			e.Response.Header().Set(constants.Pragma, constants.NoCache)
-			e.Response.Header().Set(constants.Expires, "0")
+			e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
-			return e.JSON(http.StatusOK, map[string]interface{}{
+			return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
 				constants.JSONMessage:       constants.CleanupCompletedMsg,
 				constants.JSONRowsDeleted:   rowsAffected,
 				constants.JSONCutoffTime:    cutoffTime.Format(constants.TimeFormat),
@@ -87,11 +87,11 @@ func main() {
 		})
 
 		// Test endpoint to verify click counting is working
-		e.Router.GET("/api/test-click/{shortCode}", func(e *core.RequestEvent) error {
-			shortCode := e.Request.PathValue("shortCode")
+		e.Router.GET("/api/test-click/{"+constants.PathParamShortCode+"}", func(e *core.RequestEvent) error {
+			shortCode := e.Request.PathValue(constants.PathParamShortCode)
 
 			if shortCode == "" {
-				return e.JSON(http.StatusNotFound, map[string]string{
+				return e.JSON(constants.HTTPStatusNotFound, map[string]string{
 					constants.JSONError: constants.ShortCodeRequired,
 				})
 			}
@@ -99,16 +99,16 @@ func main() {
 			// Get current click count
 			urlData, err := db.GetURLFromDB(app, shortCode)
 			if err != nil || urlData == nil {
-				return e.JSON(http.StatusNotFound, map[string]string{
+				return e.JSON(constants.HTTPStatusNotFound, map[string]string{
 					constants.JSONError: constants.URLNotFound,
 				})
 			}
 
-			currentClicks := urlData["clicks"].(int)
+			currentClicks := urlData[constants.ColumnClicks].(int)
 
 			// Increment click count
 			if err := db.IncrementClickCount(app, shortCode); err != nil {
-				return e.JSON(http.StatusInternalServerError, map[string]string{
+				return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
 					constants.JSONError: constants.IncrementError,
 				})
 			}
@@ -116,21 +116,21 @@ func main() {
 			// Get updated click count
 			updatedData, err := db.GetURLFromDB(app, shortCode)
 			if err != nil || updatedData == nil {
-				return e.JSON(http.StatusInternalServerError, map[string]string{
+				return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
 					constants.JSONError: constants.DatabaseError,
 				})
 			}
 
-			newClicks := updatedData["clicks"].(int)
+			newClicks := updatedData[constants.ColumnClicks].(int)
 
 			// Set aggressive cache-busting headers
 			e.Response.Header().Set(constants.CacheControl, constants.NoCacheMaxAge)
 			e.Response.Header().Set(constants.Pragma, constants.NoCache)
-			e.Response.Header().Set(constants.Expires, "0")
-			e.Response.Header().Set(constants.LastModified, time.Now().Format(http.TimeFormat))
+			e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
+			e.Response.Header().Set(constants.LastModified, time.Now().Format(constants.HTTPTimeFormat))
 			e.Response.Header().Set(constants.XTimestamp, fmt.Sprintf("%d", time.Now().UnixNano()))
 
-			return e.JSON(http.StatusOK, map[string]interface{}{
+			return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
 				constants.JSONShortCode:  shortCode,
 				constants.JSONPrevClicks: currentClicks,
 				constants.JSONCurrClicks: newClicks,
@@ -140,11 +140,11 @@ func main() {
 		})
 
 		// GET endpoint to get URL statistics
-		e.Router.GET("/api/stats/{shortCode}", func(e *core.RequestEvent) error {
-			shortCode := e.Request.PathValue("shortCode")
+		e.Router.GET("/api/stats/{"+constants.PathParamShortCode+"}", func(e *core.RequestEvent) error {
+			shortCode := e.Request.PathValue(constants.PathParamShortCode)
 
 			if shortCode == "" {
-				return e.JSON(http.StatusNotFound, map[string]string{
+				return e.JSON(constants.HTTPStatusNotFound, map[string]string{
 					constants.JSONError: constants.ShortCodeRequired,
 				})
 			}
@@ -155,17 +155,17 @@ func main() {
 				// Set cache-busting headers
 				e.Response.Header().Set(constants.CacheControl, constants.NoCache)
 				e.Response.Header().Set(constants.Pragma, constants.NoCache)
-				e.Response.Header().Set(constants.Expires, "0")
+				e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
-				return e.JSON(http.StatusOK, map[string]interface{}{
+				return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
 					constants.JSONShortCode:   shortCode,
-					constants.JSONOriginalURL: urlData["original_url"].(string),
-					constants.JSONClicks:      urlData["clicks"].(int),
-					constants.JSONCreated:     urlData["created"].(time.Time).Format(constants.TimeFormat),
+					constants.JSONOriginalURL: urlData[constants.ColumnOriginalURL].(string),
+					constants.JSONClicks:      urlData[constants.ColumnClicks].(int),
+					constants.JSONCreated:     urlData[constants.ColumnCreated].(time.Time).Format(constants.TimeFormat),
 				})
 			}
 
-			return e.JSON(http.StatusNotFound, map[string]string{
+			return e.JSON(constants.HTTPStatusNotFound, map[string]string{
 				constants.JSONError: constants.URLNotFound,
 			})
 		})
@@ -175,7 +175,7 @@ func main() {
 			// Fetch last 5 URLs from database
 			recentURLs, err := db.GetRecentURLsFromDB(app, 5)
 			if err != nil {
-				return e.JSON(http.StatusInternalServerError, map[string]string{
+				return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
 					constants.JSONError: constants.FetchURLError,
 				})
 			}
@@ -183,10 +183,10 @@ func main() {
 			// Set cache-busting headers
 			e.Response.Header().Set(constants.CacheControl, constants.NoCache)
 			e.Response.Header().Set(constants.Pragma, constants.NoCache)
-			e.Response.Header().Set(constants.Expires, "0")
+			e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
-			return e.JSON(http.StatusOK, map[string]interface{}{
-				"urls": recentURLs,
+			return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
+				constants.JSONUrls: recentURLs,
 			})
 		})
 
@@ -197,13 +197,13 @@ func main() {
 			}{}
 
 			if err := e.BindBody(&data); err != nil {
-				return e.JSON(http.StatusBadRequest, map[string]string{
+				return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
 					constants.JSONError: constants.InvalidJSON,
 				})
 			}
 
 			if data.URL == "" {
-				return e.JSON(http.StatusBadRequest, map[string]string{
+				return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
 					constants.JSONError: constants.URLRequired,
 				})
 			}
@@ -211,7 +211,7 @@ func main() {
 			// Validate and normalize URL format
 			parsedURL, err := url.Parse(data.URL)
 			if err != nil {
-				return e.JSON(http.StatusBadRequest, map[string]string{
+				return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
 					constants.JSONError: constants.InvalidURLFormat,
 				})
 			}
@@ -220,14 +220,14 @@ func main() {
 			if parsedURL.Scheme == "" {
 				// Check if it looks like it has a protocol but is missing
 				if strings.HasPrefix(data.URL, constants.HTTPProtocol) || strings.HasPrefix(data.URL, constants.HTTPSProtocol) {
-					return e.JSON(http.StatusBadRequest, map[string]string{
+					return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
 						constants.JSONError: constants.InvalidURLFormat,
 					})
 				}
 				// Add https:// protocol for bare URLs
 				data.URL = constants.DefaultProtocol + data.URL
-			} else if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-				return e.JSON(http.StatusBadRequest, map[string]string{
+			} else if parsedURL.Scheme != constants.HTTPScheme && parsedURL.Scheme != constants.HTTPSScheme {
+				return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
 					constants.JSONError: constants.HTTPSOnly,
 				})
 			}
@@ -238,7 +238,7 @@ func main() {
 			// Store URL in PocketBase database
 			err = db.StoreURLInDB(app, shortCode, data.URL)
 			if err != nil {
-				return e.JSON(http.StatusInternalServerError, map[string]string{
+				return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
 					constants.JSONError: constants.StoreURLError,
 				})
 			}
@@ -249,7 +249,7 @@ func main() {
 			// 3. Use PocketBase's collection and record APIs
 
 			baseURL := urlutil.GetBaseURL()
-			return e.JSON(http.StatusCreated, map[string]interface{}{
+			return e.JSON(constants.HTTPStatusCreated, map[string]interface{}{
 				constants.JSONOriginalURL: data.URL,
 				constants.JSONShortCode:   shortCode,
 				constants.JSONShortURL:    baseURL + "/" + shortCode,
@@ -263,12 +263,12 @@ func main() {
 		})
 
 		// GET endpoint to redirect short URLs
-		e.Router.GET("/{shortCode}", func(e *core.RequestEvent) error {
-			shortCode := e.Request.PathValue("shortCode")
+		e.Router.GET("/{"+constants.PathParamShortCode+"}", func(e *core.RequestEvent) error {
+			shortCode := e.Request.PathValue(constants.PathParamShortCode)
 
 			if shortCode == "" {
-				return e.JSON(http.StatusNotFound, map[string]string{
-					"error": "Short code not provided",
+				return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+					constants.JSONErrorKey: constants.ErrorShortCodeNotProvided,
 				})
 			}
 
@@ -278,7 +278,7 @@ func main() {
 			// Try database first
 			urlData, err := db.GetURLFromDB(app, shortCode)
 			if err == nil && urlData != nil {
-				originalURL = urlData["original_url"].(string)
+				originalURL = urlData[constants.ColumnOriginalURL].(string)
 				found = true
 
 				// Increment click count in database
@@ -288,33 +288,33 @@ func main() {
 				} else {
 					log.Printf("Incremented click count for short code: %s", shortCode)
 					// Broadcast the click update via WebSocket
-					if urlData["clicks"] != nil {
-						clicks := urlData["clicks"].(int) + 1
+					if urlData[constants.ColumnClicks] != nil {
+						clicks := urlData[constants.ColumnClicks].(int) + 1
 						wsutil.GlobalHub.BroadcastStatsUpdate(shortCode, clicks)
 					}
 				}
 			}
 
 			if !found {
-				return e.JSON(http.StatusNotFound, map[string]string{
-					"error": "URL not found",
+				return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+					constants.JSONErrorKey: constants.ErrorURLNotFound,
 				})
 			}
 
 			// Validate URL before redirecting
 			if originalURL == "" {
-				return e.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Invalid URL stored",
+				return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+					constants.JSONErrorKey: constants.ErrorInvalidURLStored,
 				})
 			}
 
 			// Set cache-busting headers to prevent caching
-			e.Response.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			e.Response.Header().Set("Pragma", "no-cache")
-			e.Response.Header().Set("Expires", "0")
+			e.Response.Header().Set(constants.CacheControl, constants.NoCache)
+			e.Response.Header().Set(constants.Pragma, constants.NoCache)
+			e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
 			// Redirect to original URL
-			return e.Redirect(http.StatusMovedPermanently, originalURL)
+			return e.Redirect(constants.HTTPStatusMovedPermanently, originalURL)
 		})
 
 		return e.Next()

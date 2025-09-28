@@ -23,6 +23,28 @@ const (
 	DashboardStep4      = "4. The data will then be visible in the dashboard"
 )
 
+// Query constants
+const (
+	ShortCodeFilter = "short_code = {:shortCode}"
+	UpdatedFilter   = "updated < {:cutoffTime}"
+	CreatedSortDesc = "-created"
+	NoFilter        = ""
+	NoSort          = ""
+	RecordBatchSize = 500
+	LargeBatchSize  = 50000
+	NoOffset        = 0
+)
+
+// Parameter names for database queries
+const (
+	ParamShortCode   = "shortCode"
+	ParamOriginalURL = "originalURL"
+	ParamClicks      = "clicks"
+	ParamCreatedAt   = "createdAt"
+	ParamUpdatedAt   = "updatedAt"
+	ParamCutoffTime  = "cutoffTime"
+)
+
 // Column names
 const (
 	ColumnID          = "id"
@@ -119,6 +141,16 @@ const (
 	JSONClicksInc     = "clicks_incremented"
 )
 
+// Response field names (for API responses)
+const (
+	ResponseID          = "id"
+	ResponseShortCode   = "short_code"
+	ResponseOriginalURL = "original_url"
+	ResponseClicks      = "clicks"
+	ResponseCreated     = "created"
+	ResponseShortURL    = "short_url"
+)
+
 // Cache control headers
 const (
 	CacheControl  = "Cache-Control"
@@ -129,4 +161,51 @@ const (
 	NoCache       = "no-cache, no-store, must-revalidate"
 	NoCacheMaxAge = "no-cache, no-store, must-revalidate, max-age=0"
 	NoStore       = "no-cache, no-store, must-revalidate"
+)
+
+// HTTP status codes
+const (
+	HTTPStatusOK                  = 200
+	HTTPStatusCreated             = 201
+	HTTPStatusMovedPermanently    = 301
+	HTTPStatusBadRequest          = 400
+	HTTPStatusNotFound            = 404
+	HTTPStatusInternalServerError = 500
+)
+
+// Additional JSON field names
+const (
+	JSONErrorKey = "error"
+	JSONUrls     = "urls"
+)
+
+// Additional error messages
+const (
+	ErrorShortCodeNotProvided = "Short code not provided"
+	ErrorURLNotFound          = "URL not found"
+	ErrorInvalidURLStored     = "Invalid URL stored"
+)
+
+// HTTP header values
+const (
+	HeaderValueZero       = "0"
+	HTTPTimeFormat        = "Mon, 02 Jan 2006 15:04:05 GMT"
+	WebSocketTextMessage  = 1
+	WebSocketCloseMessage = 8
+)
+
+// URL scheme constants
+const (
+	HTTPScheme  = "http"
+	HTTPSScheme = "https"
+)
+
+// JSON struct field names
+const (
+	JSONFieldURL = "url"
+)
+
+// Path parameter names
+const (
+	PathParamShortCode = "shortCode"
 )
