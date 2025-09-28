@@ -11,6 +11,7 @@ import (
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/generator"
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/monitoring"
 	urlutil "github.com/kweusuf/pocketbase-demo/pkg/utils/url"
 	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
 	"github.com/kweusuf/pocketbase-demo/transport/ws"
@@ -31,6 +32,11 @@ func main() {
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// Initialize database table
 		if err := db.InitDatabase(app); err != nil {
+			return err
+		}
+
+		// Register health check and monitoring routes
+		if err := monitoring.RegisterHealthRoutes(app, e); err != nil {
 			return err
 		}
 		// Serve static files from current directory
