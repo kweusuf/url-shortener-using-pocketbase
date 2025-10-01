@@ -44,7 +44,7 @@ func TestStartCleanupScheduler(t *testing.T) {
 	// Store a URL that won't be cleaned up (recent)
 	shortCode := "scheduler_test"
 	originalURL := "https://scheduler-test.com"
-	err = StoreURLInDB(app, shortCode, originalURL)
+	err = StoreURLInDB(app, shortCode, originalURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestCleanupOldURLsWithNoOldURLs(t *testing.T) {
 	// Store a recent URL
 	shortCode := "recent_test"
 	originalURL := "https://recent-test.com"
-	err = StoreURLInDB(app, shortCode, originalURL)
+	err = StoreURLInDB(app, shortCode, originalURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestCleanupOldURLsWithMixedURLs(t *testing.T) {
 	// Store recent URL
 	recentCode := "recent_mixed"
 	recentURL := "https://recent-mixed.com"
-	err = StoreURLInDB(app, recentCode, recentURL)
+	err = StoreURLInDB(app, recentCode, recentURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestCleanupOldURLsWithMixedURLs(t *testing.T) {
 	// Store old URL
 	oldCode := "old_mixed"
 	oldURL := "https://old-mixed.com"
-	err = StoreURLInDB(app, oldCode, oldURL)
+	err = StoreURLInDB(app, oldCode, oldURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestCleanupOldURLsWithMultipleOldURLs(t *testing.T) {
 	}
 
 	for _, url := range oldURLs {
-		err = StoreURLInDB(app, url.shortCode, url.originalURL)
+		err = StoreURLInDB(app, url.shortCode, url.originalURL, "")
 		if err != nil {
 			t.Fatalf("StoreURLInDB failed for %s: %v", url.shortCode, err)
 		}
@@ -261,7 +261,7 @@ func TestCleanupOldURLsWithBoundaryTime(t *testing.T) {
 	// Store URL that is exactly at the boundary (should not be cleaned)
 	boundaryCode := "boundary_test"
 	boundaryURL := "https://boundary-test.com"
-	err = StoreURLInDB(app, boundaryCode, boundaryURL)
+	err = StoreURLInDB(app, boundaryCode, boundaryURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}

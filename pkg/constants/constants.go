@@ -43,6 +43,7 @@ const (
 	ParamCreatedAt   = "createdAt"
 	ParamUpdatedAt   = "updatedAt"
 	ParamCutoffTime  = "cutoffTime"
+	ParamUserID      = "userId"
 )
 
 // Column names
@@ -53,6 +54,7 @@ const (
 	ColumnClicks      = "clicks"
 	ColumnCreated     = "created"
 	ColumnUpdated     = "updated"
+	ColumnUserID      = "user_id"
 )
 
 // URL and protocol constants
@@ -139,6 +141,7 @@ const (
 	JSONPrevClicks    = "previous_clicks"
 	JSONCurrClicks    = "current_clicks"
 	JSONClicksInc     = "clicks_incremented"
+	JSONUser          = "user"
 )
 
 // Response field names (for API responses)
@@ -169,6 +172,8 @@ const (
 	HTTPStatusCreated             = 201
 	HTTPStatusMovedPermanently    = 301
 	HTTPStatusBadRequest          = 400
+	HTTPStatusUnauthorized        = 401
+	HTTPStatusForbidden           = 403
 	HTTPStatusNotFound            = 404
 	HTTPStatusInternalServerError = 500
 )
@@ -184,6 +189,16 @@ const (
 	ErrorShortCodeNotProvided = "Short code not provided"
 	ErrorURLNotFound          = "URL not found"
 	ErrorInvalidURLStored     = "Invalid URL stored"
+	ErrorUnauthorized         = "Unauthorized access"
+	ErrorInvalidCredentials   = "Invalid email or password"
+	ErrorUserExists           = "User already exists"
+	ErrorEmailRequired        = "Email is required"
+	ErrorPasswordRequired     = "Password is required"
+	ErrorPasswordTooShort     = "Password must be at least 6 characters"
+	ErrorInvalidEmail         = "Invalid email format"
+	ErrorTokenExpired         = "Authentication token expired"
+	ErrorTokenInvalid         = "Invalid authentication token"
+	ErrorSessionRequired      = "Authentication required"
 )
 
 // HTTP header values
@@ -202,7 +217,12 @@ const (
 
 // JSON struct field names
 const (
-	JSONFieldURL = "url"
+	JSONFieldURL      = "url"
+	JSONFieldEmail    = "email"
+	JSONFieldPassword = "password"
+	JSONFieldToken    = "token"
+	JSONFieldUser     = "user"
+	JSONFieldUserID   = "user_id"
 )
 
 // Path parameter names

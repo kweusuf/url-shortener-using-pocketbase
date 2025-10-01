@@ -186,7 +186,7 @@ func TestStoreURLInDB(t *testing.T) {
 	originalURL := "https://example.com"
 
 	// Store URL
-	err = StoreURLInDB(app, shortCode, originalURL)
+	err = StoreURLInDB(app, shortCode, originalURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestGetURLFromDB(t *testing.T) {
 	originalURL := "https://test.com"
 
 	// Store URL first
-	err = StoreURLInDB(app, shortCode, originalURL)
+	err = StoreURLInDB(app, shortCode, originalURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}
@@ -345,7 +345,7 @@ func TestGetRecentURLsFromDB(t *testing.T) {
 	}
 
 	for _, url := range urls {
-		err = StoreURLInDB(app, url.shortCode, url.originalURL)
+		err = StoreURLInDB(app, url.shortCode, url.originalURL, "")
 		if err != nil {
 			t.Fatalf("StoreURLInDB failed for %s: %v", url.shortCode, err)
 		}
@@ -353,7 +353,7 @@ func TestGetRecentURLsFromDB(t *testing.T) {
 
 	// Test getting recent URLs with limit
 	limit := 2
-	recentURLs, err := GetRecentURLsFromDB(app, limit)
+	recentURLs, err := GetRecentURLsFromDB(app, limit, "")
 	if err != nil {
 		t.Fatalf("GetRecentURLsFromDB failed: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestGetRecentURLsFromDB(t *testing.T) {
 
 	// Test with limit larger than available URLs
 	largeLimit := 10
-	allURLs, err := GetRecentURLsFromDB(app, largeLimit)
+	allURLs, err := GetRecentURLsFromDB(app, largeLimit, "")
 	if err != nil {
 		t.Fatalf("GetRecentURLsFromDB failed: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestCleanupOldURLs(t *testing.T) {
 	// Store a URL
 	shortCode := "cleanup_test"
 	originalURL := "https://cleanup-test.com"
-	err = StoreURLInDB(app, shortCode, originalURL)
+	err = StoreURLInDB(app, shortCode, originalURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}

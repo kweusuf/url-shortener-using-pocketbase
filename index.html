@@ -68,8 +68,80 @@
 </head>
 <body>
     <div class="container">
-        <div class="row justify-content-center">
+        <!-- Authentication Section -->
+        <div class="row justify-content-center mb-4" id="authSection">
             <div class="col-md-8 col-lg-6">
+                <!-- Login Form -->
+                <div class="auth-form" id="loginForm">
+                    <h2 class="text-center mb-4">🔐 Login</h2>
+                    <form id="loginFormElement">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control form-control-lg" id="loginEmail"
+                                   placeholder="your@email.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control form-control-lg" id="loginPassword"
+                                   placeholder="••••••••" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg" id="loginBtn">
+                                <span class="spinner-border spinner-border-sm d-none" id="loginSpinner"></span>
+                                Sign In
+                            </button>
+                        </div>
+                    </form>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-link" id="showRegister">Don't have an account? Register</button>
+                    </div>
+                    <!-- Login Error Alert -->
+                    <div class="alert alert-danger d-none mt-3" id="loginErrorAlert"></div>
+                </div>
+
+                <!-- Register Form -->
+                <div class="auth-form d-none" id="registerForm">
+                    <h2 class="text-center mb-4">📝 Register</h2>
+                    <form id="registerFormElement">
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control form-control-lg" id="registerEmail"
+                                   placeholder="your@email.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="registerPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control form-control-lg" id="registerPassword"
+                                   placeholder="••••••••" required>
+                            <div class="form-text">Password must be at least 6 characters</div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="registerBtn">
+                                <span class="spinner-border spinner-border-sm d-none" id="registerSpinner"></span>
+                                Create Account
+                            </button>
+                        </div>
+                    </form>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-link" id="showLogin">Already have an account? Login</button>
+                    </div>
+                    <!-- Register Error Alert -->
+                    <div class="alert alert-danger d-none mt-3" id="registerErrorAlert"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main URL Shortener Section (shown after login) -->
+        <div class="row justify-content-center d-none" id="mainSection">
+            <div class="col-md-8 col-lg-6">
+                <!-- User Info Bar -->
+                <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded shadow-sm">
+                    <div>
+                        <span class="fw-bold" id="userEmail"></span>
+                        <span class="badge bg-success ms-2">Logged In</span>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm" id="logoutBtn">Logout</button>
+                </div>
+
                 <div class="url-form">
                     <h2 class="text-center mb-4">🔗 URL Shortener</h2>
                     <p class="text-center text-muted mb-4">Transform your long URLs into short, shareable links</p>
@@ -93,8 +165,6 @@
 
                     <!-- Error Alert -->
                     <div class="alert alert-danger d-none mt-3" id="errorAlert"></div>
-
-
                 </div>
 
                 <!-- Statistics Card -->
@@ -123,6 +193,7 @@
         let ws = null;
         let isWebSocketConnected = false;
         let refreshInterval = null;
+        let currentUser = null;
 
         // Handle form submission
         document.getElementById('urlForm').addEventListener('submit', async function(e) {
@@ -145,11 +216,21 @@
             hideError();
 
             try {
+                // Get auth token from localStorage
+                const authToken = localStorage.getItem('authToken');
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+
+                // Add authorization header if user is logged in
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
                 const response = await fetch(`${API_BASE}/shorten`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: headers,
                     body: JSON.stringify({
                         url: longUrl
                     })
@@ -532,6 +613,348 @@
             if (e.key === 'Enter') {
                 document.getElementById('urlForm').dispatchEvent(new Event('submit'));
             }
+        });
+
+        // ========================================
+        // AUTHENTICATION FUNCTIONS
+        // ========================================
+
+        // Show login form and hide register form
+        function showLoginForm() {
+            document.getElementById('loginForm').classList.remove('d-none');
+            document.getElementById('registerForm').classList.add('d-none');
+        }
+
+        // Show register form and hide login form
+        function showRegisterForm() {
+            document.getElementById('registerForm').classList.remove('d-none');
+            document.getElementById('loginForm').classList.add('d-none');
+        }
+
+        // Show main application after successful login
+        function showMainApp(user) {
+            currentUser = user;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('authSection').classList.add('d-none');
+            document.getElementById('mainSection').classList.remove('d-none');
+
+            // Focus on URL input
+            document.getElementById('longUrl').focus();
+
+            // Load user's URLs
+            loadUserRecentUrls();
+
+            console.log('🔓 User logged in:', user.email);
+        }
+
+        // Show authentication forms (logout)
+        function showAuthForms() {
+            currentUser = null;
+            // Clear stored auth data
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userEmail');
+
+            document.getElementById('authSection').classList.remove('d-none');
+            document.getElementById('mainSection').classList.add('d-none');
+            showLoginForm();
+
+            // Clear any existing intervals
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+
+            console.log('🔒 User logged out');
+        }
+
+        // Login function - Use PocketBase's built-in auth endpoint
+        async function login(email, password) {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginSpinner = document.getElementById('loginSpinner');
+            const loginErrorAlert = document.getElementById('loginErrorAlert');
+
+            // Show loading state
+            loginBtn.disabled = true;
+            loginSpinner.classList.remove('d-none');
+            loginErrorAlert.classList.add('d-none');
+
+            try {
+                const response = await fetch(`${API_BASE}/collections/users/auth-with-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        identity: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Login successful - PocketBase returns record and token
+                    // Store auth token in localStorage for authenticated requests
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('userId', data.record.id);
+                    localStorage.setItem('userEmail', data.record.email);
+
+                    showMainApp({
+                        id: data.record.id,
+                        email: data.record.email,
+                        verified: data.record.verified
+                    });
+                    return { success: true };
+                } else {
+                    // Login failed
+                    loginErrorAlert.textContent = data.message || 'Login failed';
+                    loginErrorAlert.classList.remove('d-none');
+                    return { success: false, error: data.message };
+                }
+            } catch (error) {
+                loginErrorAlert.textContent = 'Network error. Please check if the server is running.';
+                loginErrorAlert.classList.remove('d-none');
+                return { success: false, error: 'Network error' };
+            } finally {
+                // Hide loading state
+                loginBtn.disabled = false;
+                loginSpinner.classList.add('d-none');
+            }
+        }
+
+        // Register function
+        async function register(email, password) {
+            const registerBtn = document.getElementById('registerBtn');
+            const registerSpinner = document.getElementById('registerSpinner');
+            const registerErrorAlert = document.getElementById('registerErrorAlert');
+
+            // Show loading state
+            registerBtn.disabled = true;
+            registerSpinner.classList.remove('d-none');
+            registerErrorAlert.classList.add('d-none');
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Registration successful, automatically log in
+                    showMainApp(data.user);
+                    return { success: true };
+                } else {
+                    // Registration failed
+                    registerErrorAlert.textContent = data.error || 'Registration failed';
+                    registerErrorAlert.classList.remove('d-none');
+                    return { success: false, error: data.error };
+                }
+            } catch (error) {
+                registerErrorAlert.textContent = 'Network error. Please check if the server is running.';
+                registerErrorAlert.classList.remove('d-none');
+                return { success: false, error: 'Network error' };
+            } finally {
+                // Hide loading state
+                registerBtn.disabled = false;
+                registerSpinner.classList.add('d-none');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            // Clear user session
+            currentUser = null;
+
+            // Show auth forms
+            showAuthForms();
+
+            console.log('👋 User logged out');
+        }
+
+        // Load user's recent URLs after login
+        async function loadUserRecentUrls() {
+            if (!currentUser) return;
+
+            try {
+                // Get auth token from localStorage
+                const authToken = localStorage.getItem('authToken');
+
+                const headers = {};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                const response = await fetch(`${API_BASE}/recent`, { headers });
+                const data = await response.json();
+
+                if (response.ok && data.urls && data.urls.length > 0) {
+                    const recentUrls = document.getElementById('recentUrls');
+                    recentUrls.innerHTML = ''; // Clear existing content
+
+                    data.urls.forEach(url => {
+                        const recentDiv = document.createElement('div');
+                        recentDiv.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+
+                        // Parse the formatted date string and format it properly
+                        let formattedTime = 'Unknown time';
+                        try {
+                            if (url.created) {
+                                const date = new Date(url.created);
+                                if (!isNaN(date.getTime())) {
+                                    formattedTime = date.toLocaleString();
+                                } else {
+                                    formattedTime = url.created;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Failed to parse date:', url.created);
+                            formattedTime = url.created || 'Unknown time';
+                        }
+
+                        recentDiv.innerHTML = `
+                            <div>
+                                <div class="fw-bold">${url.short_code}</div>
+                                <div class="text-muted small">${formattedTime}</div>
+                                <div class="click-count small text-muted">Clicks: ${url.clicks}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="small text-truncate" style="max-width: 150px; margin-bottom: 5px;">${url.original_url}</div>
+                                <div class="d-flex gap-1 flex-column" style="width: 120px; margin-left: auto;">
+                                    <button class="btn btn-sm copy-btn-recent" onclick="copyToClipboardRecent('${url.short_url}')" style="background-color: #ff6b35; color: white; border: none; font-size: 0.8rem; padding: 4px 8px; width: 100%; min-width: 100px;">
+                                        📋 Copy
+                                    </button>
+                                    <a href="${url.short_url}" target="_blank" class="btn btn-sm btn-outline-primary" style="width: 100%;">Visit</a>
+                                </div>
+                            </div>
+                        `;
+                        recentUrls.appendChild(recentDiv);
+                    });
+                } else {
+                    // No URLs found or error - show empty state
+                    document.getElementById('recentUrls').innerHTML = '<p class="text-muted">No recent URLs yet. Create your first short URL above!</p>';
+                }
+            } catch (error) {
+                console.error('Error loading user URLs:', error);
+                document.getElementById('recentUrls').innerHTML = '<p class="text-muted">Error loading URLs. Please refresh the page.</p>';
+            }
+        }
+
+        // ========================================
+        // EVENT LISTENERS
+        // ========================================
+
+        // Login form submission
+        document.getElementById('loginFormElement').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                document.getElementById('loginErrorAlert').textContent = 'Please fill in all fields';
+                document.getElementById('loginErrorAlert').classList.remove('d-none');
+                return;
+            }
+
+            await login(email, password);
+        });
+
+        // Register form submission
+        document.getElementById('registerFormElement').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+
+            if (!email || !password) {
+                document.getElementById('registerErrorAlert').textContent = 'Please fill in all fields';
+                document.getElementById('registerErrorAlert').classList.remove('d-none');
+                return;
+            }
+
+            await register(email, password);
+        });
+
+        // Show register form
+        document.getElementById('showRegister').addEventListener('click', function(e) {
+            e.preventDefault();
+            showRegisterForm();
+        });
+
+        // Show login form
+        document.getElementById('showLogin').addEventListener('click', function(e) {
+            e.preventDefault();
+            showLoginForm();
+        });
+
+        // Logout button
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            logout();
+        });
+
+        // Handle Enter key in login form
+        document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginFormElement').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Handle Enter key in register form
+        document.getElementById('registerPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('registerFormElement').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Initialize page state and check for existing login
+        window.addEventListener('load', async function() {
+            // Check if user is already logged in (has valid auth token)
+            const authToken = localStorage.getItem('authToken');
+            const userId = localStorage.getItem('userId');
+            const userEmail = localStorage.getItem('userEmail');
+
+            if (authToken && userId && userEmail) {
+                // Try to validate the token and show main app
+                try {
+                    // Quick token validation by making a request to /api/recent
+                    const response = await fetch(`${API_BASE}/recent`, {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        // Token is valid, show main app
+                        showMainApp({
+                            id: userId,
+                            email: userEmail,
+                            verified: true // Assuming verified since login persisted
+                        });
+                        return; // Exit early, no need to show auth forms
+                    }
+                } catch (error) {
+                    console.warn('Token validation failed, will show login form:', error);
+                    // Token validation failed, clear stored data
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userEmail');
+                }
+            }
+
+            // Show login form by default (if we got here, user is not logged in)
+            showLoginForm();
+            setTimeout(() => {
+                document.getElementById('loginEmail').focus();
+            }, 100);
         });
     </script>
 </body>
