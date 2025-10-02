@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
+	"github.com/kweusuf/pocketbase-demo/pkg/models"
 	"github.com/pocketbase/pocketbase"
 )
 
@@ -151,7 +152,7 @@ func TestCheckApplicationHealth(t *testing.T) {
 	}
 
 	// With valid app, should be healthy
-	if health.Status != StatusHealthy {
+	if health.Status != constants.StatusHealthy {
 		t.Errorf("Expected healthy status, got %s", health.Status)
 	}
 }
@@ -167,7 +168,7 @@ func TestCheckApplicationHealthWithNilApp(t *testing.T) {
 	}
 
 	// With nil app, should be unhealthy
-	if health.Status != StatusUnhealthy {
+	if health.Status != constants.StatusUnhealthy {
 		t.Errorf("Expected unhealthy status for nil app, got %s", health.Status)
 	}
 
@@ -200,7 +201,7 @@ func TestCheckDatabaseHealth(t *testing.T) {
 	}
 
 	// With valid database, should be healthy or degraded
-	if health.Status != StatusHealthy && health.Status != StatusDegraded {
+	if health.Status != constants.StatusHealthy && health.Status != constants.StatusDegraded {
 		t.Errorf("Expected healthy or degraded status, got %s", health.Status)
 	}
 }
@@ -213,7 +214,7 @@ func TestCheckDatabaseHealthWithNilDB(t *testing.T) {
 	health := checker.checkDatabaseHealth(context.Background())
 
 	// Should be unhealthy when DB is nil
-	if health.Status != StatusUnhealthy {
+	if health.Status != constants.StatusUnhealthy {
 		t.Errorf("Expected unhealthy status for nil DB, got %s", health.Status)
 	}
 
@@ -246,7 +247,7 @@ func TestCheckExternalDependencies(t *testing.T) {
 	}
 
 	// External dependencies should be healthy by default
-	if health.Status != StatusHealthy {
+	if health.Status != constants.StatusHealthy {
 		t.Errorf("Expected healthy status for external dependencies, got %s", health.Status)
 	}
 }
@@ -405,25 +406,25 @@ func TestGetDatabaseInfoWithNilDB(t *testing.T) {
 
 func TestHealthStatusConstants(t *testing.T) {
 	// Test that health status constants are defined correctly
-	if StatusHealthy != "healthy" {
-		t.Errorf("Expected StatusHealthy to be 'healthy', got %s", StatusHealthy)
+	if constants.StatusHealthy != "healthy" {
+		t.Errorf("Expected constants.StatusHealthy to be 'healthy', got %s", constants.StatusHealthy)
 	}
 
-	if StatusDegraded != "degraded" {
-		t.Errorf("Expected StatusDegraded to be 'degraded', got %s", StatusDegraded)
+	if constants.StatusDegraded != "degraded" {
+		t.Errorf("Expected StatusDegraded to be 'degraded', got %s", constants.StatusDegraded)
 	}
 
-	if StatusUnhealthy != "unhealthy" {
-		t.Errorf("Expected StatusUnhealthy to be 'unhealthy', got %s", StatusUnhealthy)
+	if constants.StatusUnhealthy != "unhealthy" {
+		t.Errorf("Expected StatusUnhealthy to be 'unhealthy', got %s", constants.StatusUnhealthy)
 	}
 }
 
 func TestComponentHealthStructure(t *testing.T) {
 	// Test ComponentHealth struct initialization
 	now := time.Now()
-	component := ComponentHealth{
+	component := models.ComponentHealth{
 		Name:         "test_component",
-		Status:       StatusHealthy,
+		Status:       constants.StatusHealthy,
 		Message:      "Test message",
 		ResponseTime: 50 * time.Millisecond,
 		LastCheck:    now,
@@ -433,7 +434,7 @@ func TestComponentHealthStructure(t *testing.T) {
 		t.Errorf("Expected name 'test_component', got %s", component.Name)
 	}
 
-	if component.Status != StatusHealthy {
+	if component.Status != constants.StatusHealthy {
 		t.Errorf("Expected status 'healthy', got %s", component.Status)
 	}
 
@@ -453,22 +454,22 @@ func TestComponentHealthStructure(t *testing.T) {
 func TestSystemHealthStructure(t *testing.T) {
 	// Test SystemHealth struct initialization
 	now := time.Now()
-	components := []ComponentHealth{
+	components := []models.ComponentHealth{
 		{
 			Name:         "test_component",
-			Status:       StatusHealthy,
+			Status:       constants.StatusHealthy,
 			ResponseTime: 10 * time.Millisecond,
 			LastCheck:    now,
 		},
 	}
 
-	systemInfo := SystemInfo{
+	systemInfo := models.SystemInfo{
 		GoVersion:  "go1.19",
 		Goroutines: 10,
 	}
 
-	health := SystemHealth{
-		Status:      StatusHealthy,
+	health := models.SystemHealth{
+		Status:      constants.StatusHealthy,
 		Timestamp:   now,
 		Version:     "1.0.0",
 		Uptime:      "1h30m",
@@ -477,7 +478,7 @@ func TestSystemHealthStructure(t *testing.T) {
 		SystemInfo:  systemInfo,
 	}
 
-	if health.Status != StatusHealthy {
+	if health.Status != constants.StatusHealthy {
 		t.Errorf("Expected status 'healthy', got %s", health.Status)
 	}
 
@@ -508,7 +509,7 @@ func TestSystemHealthStructure(t *testing.T) {
 
 func TestMemoryStatsStructure(t *testing.T) {
 	// Test MemoryStats struct
-	memStats := MemoryStats{
+	memStats := models.MemoryStats{
 		AllocatedBytes:      1024,
 		TotalAllocatedBytes: 2048,
 		SystemMemoryBytes:   4096,
@@ -534,7 +535,7 @@ func TestMemoryStatsStructure(t *testing.T) {
 
 func TestDBInfoStructure(t *testing.T) {
 	// Test DBInfo struct
-	dbInfo := DBInfo{
+	dbInfo := models.DBInfo{
 		Type:             "sqlite",
 		ConnectionStatus: "connected",
 		ResponseTime:     25 * time.Millisecond,
@@ -560,20 +561,20 @@ func TestDBInfoStructure(t *testing.T) {
 
 func TestSystemInfoStructure(t *testing.T) {
 	// Test SystemInfo struct
-	memStats := MemoryStats{
+	memStats := models.MemoryStats{
 		AllocatedBytes:      1024,
 		TotalAllocatedBytes: 2048,
 		SystemMemoryBytes:   4096,
 		GCRuns:              5,
 	}
 
-	dbInfo := DBInfo{
+	dbInfo := models.DBInfo{
 		Type:             "sqlite",
 		ConnectionStatus: "connected",
 		ResponseTime:     25 * time.Millisecond,
 	}
 
-	systemInfo := SystemInfo{
+	systemInfo := models.SystemInfo{
 		GoVersion:    "go1.19",
 		Goroutines:   10,
 		MemoryUsage:  memStats,
@@ -649,7 +650,7 @@ func TestHealthCheckerWithDatabaseOperations(t *testing.T) {
 	health := checker.checkDatabaseHealth(context.Background())
 
 	// Should be able to connect and query
-	if health.Status == StatusUnhealthy {
+	if health.Status == constants.StatusUnhealthy {
 		t.Errorf("Database should be healthy, got status: %s", health.Status)
 	}
 
