@@ -2,12 +2,9 @@ package httproutes
 
 import (
 	"net/http"
-	"time"
 
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
-
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
+	"github.com/kweusuf/pocketbase-demo/pkg/service"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/auth"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -15,6 +12,8 @@ import (
 
 // RegisterAuthRoutes registers authentication routes
 func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
+	authService := service.NewAuthService(app)
+
 	// POST /api/auth/register - User registration
 	e.Router.POST("/api/auth/register", func(e *core.RequestEvent) error {
 		data := auth.RegisterRequest{}
@@ -25,21 +24,8 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		// Validate input
-		if err := auth.ValidateEmail(data.Email); err != nil {
-			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: err.Error(),
-			})
-		}
-
-		if err := auth.ValidatePassword(data.Password); err != nil {
-			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: err.Error(),
-			})
-		}
-
-		// Create user
-		user, err := auth.CreateUser(app, data.Email, data.Password)
+		// Call service to register user
+		response, user, err := authService.RegisterUser(data.Email, data.Password)
 		if err != nil {
 			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: err.Error(),
@@ -49,38 +35,9 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Set the authenticated user in the request context for immediate login
 		e.Auth = user
 
-		// Generate JWT token manually
-		secret := "pocketbase-secret" // Use a consistent secret
-
-		claims := &jwt.MapClaims{
-			"id":           user.Id,
-			"type":         "authRecord",
-			"collectionId": user.Collection().Id,
-			"exp":          time.Now().Add(time.Hour * 24).Unix(), // 24 hours
-		}
-
-		tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		token, err := tokenObj.SignedString([]byte(secret))
-		if err != nil {
-			log.Info("Failed to generate auth token: %v", err)
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: "Failed to generate authentication token",
-			})
-		}
-
 		// Return success response with token
-		return e.JSON(http.StatusCreated, auth.AuthResponse{
-			User: auth.User{
-				ID:       user.Id,
-				Email:    user.Email(),
-				Verified: user.GetBool("verified"),
-			},
-			Token: token,
-		})
+		return e.JSON(http.StatusCreated, response)
 	})
-
-	// Add debug logging to help troubleshoot
-	log.Info("Registering auth routes: /api/auth/login")
 
 	// POST /api/auth/login - User login
 	e.Router.POST("/api/auth/login", func(e *core.RequestEvent) error {
@@ -92,21 +49,8 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		// Validate input
-		if err := auth.ValidateEmail(data.Email); err != nil {
-			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: err.Error(),
-			})
-		}
-
-		if err := auth.ValidatePassword(data.Password); err != nil {
-			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: err.Error(),
-			})
-		}
-
-		// Authenticate user
-		user, err := auth.AuthenticateUser(app, data.Email, data.Password)
+		// Call service to authenticate user
+		response, user, err := authService.LoginUser(data.Email, data.Password)
 		if err != nil {
 			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: err.Error(),
@@ -116,34 +60,8 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Set the authenticated user in the request context for session persistence
 		e.Auth = user
 
-		// Generate JWT token manually
-		secret := "pocketbase-secret" // Use a consistent secret
-
-		claims := &jwt.MapClaims{
-			"id":           user.Id,
-			"type":         "authRecord",
-			"collectionId": user.Collection().Id,
-			"exp":          time.Now().Add(time.Hour * 24).Unix(), // 24 hours
-		}
-
-		tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		token, err := tokenObj.SignedString([]byte(secret))
-		if err != nil {
-			log.Info("Failed to generate auth token: %v", err)
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: "Failed to generate authentication token",
-			})
-		}
-
-		// Return success response with token
-		return e.JSON(http.StatusOK, auth.AuthResponse{
-			User: auth.User{
-				ID:       user.Id,
-				Email:    user.Email(),
-				Verified: user.GetBool("verified"),
-			},
-			Token: token,
-		})
+		// Return success response
+		return e.JSON(http.StatusOK, response)
 	})
 
 	// POST /api/auth/logout - User logout
@@ -157,7 +75,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 
 	// GET /api/auth/me - Get current user info
 	e.Router.GET("/api/auth/me", auth.RequireAuth(func(e *core.RequestEvent) error {
-		user, err := auth.GetUserFromRequest(e)
+		user, err := authService.GetCurrentUser(e)
 		if err != nil {
 			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: err.Error(),
