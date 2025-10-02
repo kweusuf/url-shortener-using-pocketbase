@@ -9,6 +9,7 @@ import (
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/models"
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
 	"github.com/pocketbase/pocketbase"
 )
 
@@ -368,9 +369,7 @@ func TestGetDatabaseInfo(t *testing.T) {
 		app.DB().NewQuery(`DROP TABLE IF EXISTS ` + constants.TableName).Execute()
 	}()
 
-	checker := NewHealthChecker(app)
-
-	dbInfo := checker.getDatabaseInfo()
+	dbInfo := db.GetDatabaseInfo(app)
 
 	// Verify database info structure
 	if dbInfo.Type != "sqlite" {
@@ -390,9 +389,7 @@ func TestGetDatabaseInfoWithNilDB(t *testing.T) {
 	// Skip this test to avoid nil pointer dereference
 	t.Skip("Skipping TestGetDatabaseInfoWithNilDB to avoid nil pointer issues")
 
-	checker := NewHealthChecker(nil)
-
-	dbInfo := checker.getDatabaseInfo()
+	dbInfo := db.GetDatabaseInfo(nil)
 
 	// Should handle nil DB gracefully
 	if dbInfo.Type != "sqlite" {

@@ -3,13 +3,14 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"time"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/models"
+	"github.com/kweusuf/pocketbase-demo/pkg/service"
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -204,7 +205,7 @@ func (hc *HealthChecker) getSystemInfo(totalTime time.Duration) models.SystemInf
 	runtime.ReadMemStats(&memStats)
 
 	// Get database info
-	dbInfo := hc.getDatabaseInfo()
+	dbInfo := db.GetDatabaseInfo(hc.app)
 
 	return models.SystemInfo{
 		GoVersion:  runtime.Version(),
@@ -219,132 +220,35 @@ func (hc *HealthChecker) getSystemInfo(totalTime time.Duration) models.SystemInf
 	}
 }
 
-// getDatabaseInfo returns database information
-func (hc *HealthChecker) getDatabaseInfo() models.DBInfo {
-	info := models.DBInfo{
-		Type:             "sqlite",
-		ConnectionStatus: "unknown",
-	}
-
-	if hc.app.DB() == nil {
-		info.ConnectionStatus = "disconnected"
-		return info
-	}
-
-	start := time.Now()
-	_, err := hc.app.DB().NewQuery("SELECT 1").Execute()
-	responseTime := time.Since(start)
-
-	if err != nil {
-		info.ConnectionStatus = "error"
-		info.ResponseTime = responseTime
-	} else {
-		info.ConnectionStatus = "connected"
-		info.ResponseTime = responseTime
-	}
-
-	return info
-}
-
 // RegisterHealthRoutes registers health check routes with the PocketBase app
 func RegisterHealthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 	checker := NewHealthChecker(app)
+	healthService := service.NewHealthService(checker)
 
 	// Basic health check endpoint (using different path to avoid conflict)
 	e.Router.GET("/api/system/health", func(e *core.RequestEvent) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		health, err := checker.CheckSystemHealth(ctx)
-		if err != nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, models.HealthErrorResponse{
-				Status:    "error",
-				Message:   err.Error(),
-				Timestamp: time.Now(),
-			})
-		}
-
-		statusCode := http.StatusOK
-		if health.Status == constants.StatusUnhealthy {
-			statusCode = http.StatusServiceUnavailable
-		} else if health.Status == constants.StatusDegraded {
-			statusCode = http.StatusPartialContent
-		}
-
-		return e.JSON(statusCode, health)
+		return healthService.CheckSystemHealth(e)
 	})
 
 	// Detailed health check endpoint
 	e.Router.GET("/api/system/health/detailed", func(e *core.RequestEvent) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-
-		health, err := checker.CheckSystemHealth(ctx)
-		if err != nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, models.HealthErrorResponse{
-				Status:    "error",
-				Message:   err.Error(),
-				Timestamp: time.Now(),
-			})
-		}
-
-		return e.JSON(http.StatusOK, health)
+		return healthService.CheckSystemHealthDetailed(e)
 	})
 
 	// Readiness probe endpoint (for Kubernetes/Docker health checks)
 	e.Router.GET("/api/system/ready", func(e *core.RequestEvent) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		health, err := checker.CheckSystemHealth(ctx)
-		if err != nil || health.Status == constants.StatusUnhealthy {
-			return e.JSON(http.StatusServiceUnavailable, models.HealthReadyResponse{
-				Status:    "not ready",
-				Timestamp: time.Now(),
-			})
-		}
-
-		return e.JSON(http.StatusOK, models.HealthReadyResponse{
-			Status:    "ready",
-			Timestamp: time.Now(),
-		})
+		return healthService.CheckSystemReady(e)
 	})
 
 	// Liveness probe endpoint (for Kubernetes/Docker health checks)
 	e.Router.GET("/api/system/live", func(e *core.RequestEvent) error {
 		// Simple liveness check - just verify the app is responding
-		return e.JSON(http.StatusOK, models.HealthLiveResponse{
-			Status:    "alive",
-			Timestamp: time.Now(),
-		})
+		return healthService.CheckSystemLive(e)
 	})
 
 	// Metrics endpoint for monitoring systems
 	e.Router.GET("/api/system/metrics", func(e *core.RequestEvent) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		health, err := checker.CheckSystemHealth(ctx)
-		if err != nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, models.HealthMetricsErrorResponse{
-				Error: err.Error(),
-			})
-		}
-
-		metrics := models.HealthMetricsResponse{
-			HealthStatus:           string(health.Status),
-			Uptime:                 health.Uptime,
-			Goroutines:             health.SystemInfo.Goroutines,
-			MemoryAllocatedMB:      float64(health.SystemInfo.MemoryUsage.AllocatedBytes) / 1024 / 1024,
-			MemoryTotalAllocatedMB: float64(health.SystemInfo.MemoryUsage.TotalAllocatedBytes) / 1024 / 1024,
-			MemorySystemMB:         float64(health.SystemInfo.MemoryUsage.SystemMemoryBytes) / 1024 / 1024,
-			GCRuns:                 health.SystemInfo.MemoryUsage.GCRuns,
-			DatabaseResponseTimeMS: float64(health.SystemInfo.DatabaseInfo.ResponseTime.Nanoseconds()) / 1e6,
-			DatabaseStatus:         health.SystemInfo.DatabaseInfo.ConnectionStatus,
-			Timestamp:              time.Now(),
-		}
-
-		return e.JSON(http.StatusOK, metrics)
+		return healthService.CheckSystemMetrics(e)
 	})
 
 	return nil

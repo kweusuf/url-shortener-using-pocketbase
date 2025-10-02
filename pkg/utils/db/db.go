@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
+	"github.com/kweusuf/pocketbase-demo/pkg/models"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/url"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -430,6 +431,33 @@ func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int, userID string) (
 	}
 
 	return urls, nil
+}
+
+// GetDatabaseInfo returns database information for health checks
+func GetDatabaseInfo(app *pocketbase.PocketBase) models.DBInfo {
+	info := models.DBInfo{
+		Type:             "sqlite",
+		ConnectionStatus: "unknown",
+	}
+
+	if app.DB() == nil {
+		info.ConnectionStatus = "disconnected"
+		return info
+	}
+
+	start := time.Now()
+	_, err := app.DB().NewQuery("SELECT 1").Execute()
+	responseTime := time.Since(start)
+
+	if err != nil {
+		info.ConnectionStatus = "error"
+		info.ResponseTime = responseTime
+	} else {
+		info.ConnectionStatus = "connected"
+		info.ResponseTime = responseTime
+	}
+
+	return info
 }
 
 // GetUserURLsFromDB retrieves all URLs for a specific user
