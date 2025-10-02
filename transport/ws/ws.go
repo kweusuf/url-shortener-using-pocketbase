@@ -8,6 +8,7 @@ import (
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/generator"
 	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 // WebSocket upgrader
@@ -52,4 +53,15 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Start goroutine to read messages from WebSocket
 	go client.ReadPump(wsutil.GlobalHub)
+}
+
+// RegisterWSRoutes registers all WebSocket endpoints
+func RegisterWSRoutes(e *core.ServeEvent) error {
+	// WebSocket endpoint for real-time stats updates
+	e.Router.GET("/ws", func(e *core.RequestEvent) error {
+		HandleWebSocket(e.Response, e.Request)
+		return nil
+	})
+
+	return nil
 }
