@@ -167,18 +167,6 @@ const (
 	NoStore       = "no-cache, no-store, must-revalidate"
 )
 
-// HTTP status codes
-const (
-	HTTPStatusOK                  = 200
-	HTTPStatusCreated             = 201
-	HTTPStatusMovedPermanently    = 301
-	HTTPStatusBadRequest          = 400
-	HTTPStatusUnauthorized        = 401
-	HTTPStatusForbidden           = 403
-	HTTPStatusNotFound            = 404
-	HTTPStatusInternalServerError = 500
-)
-
 // Additional JSON field names
 const (
 	JSONErrorKey = "error"

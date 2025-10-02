@@ -34,7 +34,7 @@ func (hs *HealthService) CheckSystemMetrics(e *core.RequestEvent) error {
 
 	health, err := hs.checker.CheckSystemHealth(ctx)
 	if err != nil {
-		return e.JSON(constants.HTTPStatusInternalServerError, models.HealthMetricsErrorResponse{
+		return e.JSON(http.StatusInternalServerError, models.HealthMetricsErrorResponse{
 			Error: err.Error(),
 		})
 	}
@@ -89,7 +89,7 @@ func (hs *HealthService) CheckSystemHealthDetailed(e *core.RequestEvent) error {
 
 	health, err := hs.checker.CheckSystemHealth(ctx)
 	if err != nil {
-		return e.JSON(constants.HTTPStatusInternalServerError, models.HealthErrorResponse{
+		return e.JSON(http.StatusInternalServerError, models.HealthErrorResponse{
 			Status:    "error",
 			Message:   err.Error(),
 			Timestamp: time.Now(),
@@ -106,7 +106,7 @@ func (hs *HealthService) CheckSystemHealth(e *core.RequestEvent) error {
 
 	health, err := hs.checker.CheckSystemHealth(ctx)
 	if err != nil {
-		return e.JSON(constants.HTTPStatusInternalServerError, models.HealthErrorResponse{
+		return e.JSON(http.StatusInternalServerError, models.HealthErrorResponse{
 			Status:    "error",
 			Message:   err.Error(),
 			Timestamp: time.Now(),

@@ -43,7 +43,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 
 	// Basic GET endpoint at /api/hello
 	e.Router.GET("/api/hello", func(e *core.RequestEvent) error {
-		return e.JSON(constants.HTTPStatusOK, map[string]string{
+		return e.JSON(http.StatusOK, map[string]string{
 			constants.JSONMessage: constants.HelloMessage,
 			constants.JSONStatus:  constants.SuccessStatus,
 		})
@@ -61,7 +61,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		}).Execute()
 
 		if err != nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: constants.CleanupErrorMsg,
 			})
 		}
@@ -73,7 +73,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.Pragma, constants.NoCache)
 		e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
-		return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
+		return e.JSON(http.StatusOK, map[string]interface{}{
 			constants.JSONMessage:       constants.CleanupCompletedMsg,
 			constants.JSONRowsDeleted:   rowsAffected,
 			constants.JSONCutoffTime:    cutoffTime.Format(constants.TimeFormat),
@@ -86,7 +86,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		shortCode := e.Request.PathValue(constants.PathParamShortCode)
 
 		if shortCode == "" {
-			return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+			return e.JSON(http.StatusNotFound, map[string]string{
 				constants.JSONError: constants.ShortCodeRequired,
 			})
 		}
@@ -94,7 +94,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Get current click count
 		urlData, err := db.GetURLFromDB(app, shortCode)
 		if err != nil || urlData == nil {
-			return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+			return e.JSON(http.StatusNotFound, map[string]string{
 				constants.JSONError: constants.URLNotFound,
 			})
 		}
@@ -103,7 +103,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 
 		// Increment click count
 		if err := db.IncrementClickCount(app, shortCode); err != nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: constants.IncrementError,
 			})
 		}
@@ -111,7 +111,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Get updated click count
 		updatedData, err := db.GetURLFromDB(app, shortCode)
 		if err != nil || updatedData == nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: constants.DatabaseError,
 			})
 		}
@@ -125,7 +125,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.LastModified, time.Now().Format(constants.HTTPTimeFormat))
 		e.Response.Header().Set(constants.XTimestamp, fmt.Sprintf("%d", time.Now().UnixNano()))
 
-		return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
+		return e.JSON(http.StatusOK, map[string]interface{}{
 			constants.JSONShortCode:  shortCode,
 			constants.JSONPrevClicks: currentClicks,
 			constants.JSONCurrClicks: newClicks,
@@ -139,7 +139,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		shortCode := e.Request.PathValue(constants.PathParamShortCode)
 
 		if shortCode == "" {
-			return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+			return e.JSON(http.StatusNotFound, map[string]string{
 				constants.JSONError: constants.ShortCodeRequired,
 			})
 		}
@@ -152,7 +152,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			e.Response.Header().Set(constants.Pragma, constants.NoCache)
 			e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
-			return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
+			return e.JSON(http.StatusOK, map[string]interface{}{
 				constants.JSONShortCode:   shortCode,
 				constants.JSONOriginalURL: urlData[constants.ColumnOriginalURL].(string),
 				constants.JSONClicks:      urlData[constants.ColumnClicks].(int),
@@ -160,7 +160,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+		return e.JSON(http.StatusNotFound, map[string]string{
 			constants.JSONError: constants.URLNotFound,
 		})
 	})
@@ -170,7 +170,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Get authenticated user
 		user, err := auth.GetUserFromRequest(e)
 		if err != nil {
-			return e.JSON(constants.HTTPStatusUnauthorized, map[string]string{
+			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
@@ -180,7 +180,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Fetch last 5 URLs for the authenticated user
 		recentURLs, err := db.GetRecentURLsFromDB(app, 5, userID)
 		if err != nil {
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: constants.FetchURLError,
 			})
 		}
@@ -190,7 +190,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.Pragma, constants.NoCache)
 		e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
-		return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
+		return e.JSON(http.StatusOK, map[string]interface{}{
 			constants.JSONUrls: recentURLs,
 		})
 	}))
@@ -229,13 +229,13 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		}{}
 
 		if err := e.BindBody(&data); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: constants.InvalidJSON,
 			})
 		}
 
 		if data.URL == "" {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: constants.URLRequired,
 			})
 		}
@@ -243,7 +243,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Validate and normalize URL format
 		parsedURL, err := url.Parse(data.URL)
 		if err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: constants.InvalidURLFormat,
 			})
 		}
@@ -252,14 +252,14 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		if parsedURL.Scheme == "" {
 			// Check if it looks like it has a protocol but is missing
 			if strings.HasPrefix(data.URL, constants.HTTPProtocol) || strings.HasPrefix(data.URL, constants.HTTPSProtocol) {
-				return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+				return e.JSON(http.StatusBadRequest, map[string]string{
 					constants.JSONError: constants.InvalidURLFormat,
 				})
 			}
 			// Add https:// protocol for bare URLs
 			data.URL = constants.DefaultProtocol + data.URL
 		} else if parsedURL.Scheme != constants.HTTPScheme && parsedURL.Scheme != constants.HTTPSScheme {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: constants.HTTPSOnly,
 			})
 		}
@@ -272,14 +272,14 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		err = db.StoreURLInDB(app, shortCode, data.URL, userID)
 		if err != nil {
 			log.Printf("Failed to store URL with userID %s: %v", userID, err)
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: constants.StoreURLError,
 			})
 		}
 
 		log.Printf("Successfully stored URL: %s -> %s", shortCode, data.URL)
 		baseURL := urlutil.GetBaseURL()
-		return e.JSON(constants.HTTPStatusCreated, map[string]interface{}{
+		return e.JSON(http.StatusCreated, map[string]interface{}{
 			constants.JSONOriginalURL: data.URL,
 			constants.JSONShortCode:   shortCode,
 			constants.JSONShortURL:    baseURL + "/" + shortCode,
@@ -291,7 +291,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		shortCode := e.Request.PathValue(constants.PathParamShortCode)
 
 		if shortCode == "" {
-			return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+			return e.JSON(http.StatusNotFound, map[string]string{
 				constants.JSONErrorKey: constants.ErrorShortCodeNotProvided,
 			})
 		}
@@ -317,14 +317,14 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		}
 
 		if !found {
-			return e.JSON(constants.HTTPStatusNotFound, map[string]string{
+			return e.JSON(http.StatusNotFound, map[string]string{
 				constants.JSONErrorKey: constants.ErrorURLNotFound,
 			})
 		}
 
 		// Validate URL before redirecting
 		if originalURL == "" {
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONErrorKey: constants.ErrorInvalidURLStored,
 			})
 		}
@@ -335,7 +335,7 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
 		// Redirect to original URL
-		return e.Redirect(constants.HTTPStatusMovedPermanently, originalURL)
+		return e.Redirect(http.StatusMovedPermanently, originalURL)
 	})
 
 	return nil

@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -191,14 +192,14 @@ func RequireAuth(next func(*core.RequestEvent) error) func(*core.RequestEvent) e
 		// Check if user is authenticated via PocketBase auth
 		authRecord := e.Auth
 		if authRecord == nil {
-			return e.JSON(constants.HTTPStatusUnauthorized, map[string]string{
+			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: constants.ErrorSessionRequired,
 			})
 		}
 
 		// Check if auth record is from users collection
 		if authRecord.Collection().Name != "users" {
-			return e.JSON(constants.HTTPStatusUnauthorized, map[string]string{
+			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: constants.ErrorUnauthorized,
 			})
 		}
@@ -215,20 +216,20 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		data := RegisterRequest{}
 
 		if err := e.BindBody(&data); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: constants.InvalidJSON,
 			})
 		}
 
 		// Validate input
 		if err := ValidateEmail(data.Email); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
 
 		if err := ValidatePassword(data.Password); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
@@ -236,7 +237,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Create user
 		user, err := CreateUser(app, data.Email, data.Password)
 		if err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
@@ -258,13 +259,13 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		token, err := tokenObj.SignedString([]byte(secret))
 		if err != nil {
 			log.Printf("Failed to generate auth token: %v", err)
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: "Failed to generate authentication token",
 			})
 		}
 
 		// Return success response with token
-		return e.JSON(constants.HTTPStatusCreated, AuthResponse{
+		return e.JSON(http.StatusCreated, AuthResponse{
 			User: User{
 				ID:       user.Id,
 				Email:    user.Email(),
@@ -282,20 +283,20 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		data := LoginRequest{}
 
 		if err := e.BindBody(&data); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: constants.InvalidJSON,
 			})
 		}
 
 		// Validate input
 		if err := ValidateEmail(data.Email); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
 
 		if err := ValidatePassword(data.Password); err != nil {
-			return e.JSON(constants.HTTPStatusBadRequest, map[string]string{
+			return e.JSON(http.StatusBadRequest, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
@@ -303,7 +304,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Authenticate user
 		user, err := AuthenticateUser(app, data.Email, data.Password)
 		if err != nil {
-			return e.JSON(constants.HTTPStatusUnauthorized, map[string]string{
+			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
@@ -325,13 +326,13 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		token, err := tokenObj.SignedString([]byte(secret))
 		if err != nil {
 			log.Printf("Failed to generate auth token: %v", err)
-			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: "Failed to generate authentication token",
 			})
 		}
 
 		// Return success response with token
-		return e.JSON(constants.HTTPStatusOK, AuthResponse{
+		return e.JSON(http.StatusOK, AuthResponse{
 			User: User{
 				ID:       user.Id,
 				Email:    user.Email(),
@@ -345,7 +346,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 	e.Router.POST("/api/auth/logout", RequireAuth(func(e *core.RequestEvent) error {
 		// In PocketBase, logout is typically handled client-side by removing the token
 		// But we can provide a logout endpoint for consistency
-		return e.JSON(constants.HTTPStatusOK, map[string]string{
+		return e.JSON(http.StatusOK, map[string]string{
 			constants.JSONMessage: "Logout successful",
 		})
 	}))
@@ -354,12 +355,12 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 	e.Router.GET("/api/auth/me", RequireAuth(func(e *core.RequestEvent) error {
 		user, err := GetUserFromRequest(e)
 		if err != nil {
-			return e.JSON(constants.HTTPStatusUnauthorized, map[string]string{
+			return e.JSON(http.StatusUnauthorized, map[string]string{
 				constants.JSONError: err.Error(),
 			})
 		}
 
-		return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
+		return e.JSON(http.StatusOK, map[string]interface{}{
 			constants.JSONUser: user,
 		})
 	}))
