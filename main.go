@@ -62,6 +62,6 @@ func main() {
 	})
 
 	if err := app.Start(); err != nil {
-		log.Fatal(err.Error())
+		log.Fatal("%s", err.Error())
 	}
 }
