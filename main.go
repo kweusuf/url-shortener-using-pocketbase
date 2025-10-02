@@ -3,9 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/auth"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/monitoring"
 	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
 	httproutes "github.com/kweusuf/pocketbase-demo/transport/http"
 	wstransport "github.com/kweusuf/pocketbase-demo/transport/ws"
@@ -30,12 +28,12 @@ func main() {
 		}
 
 		// Register health check and monitoring routes
-		if err := monitoring.RegisterHealthRoutes(app, e); err != nil {
+		if err := httproutes.RegisterHealthRoutes(app, e); err != nil {
 			return err
 		}
 
 		// Register authentication routes
-		if err := auth.RegisterAuthRoutes(app, e); err != nil {
+		if err := httproutes.RegisterAuthRoutes(app, e); err != nil {
 			return err
 		}
 
