@@ -749,8 +749,23 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Registration successful, automatically log in
-                    showMainApp(data.user);
+
+                    // Registration successful, show login form with success message
+                    showLoginForm();
+                    // Clear the register form fields
+                    document.getElementById('registerEmail').value = '';
+                    document.getElementById('registerPassword').value = '';
+
+                    // Show success message on login form
+                    const loginErrorAlert = document.getElementById('loginErrorAlert');
+                    loginErrorAlert.textContent = 'Registration successful! Please log in with your credentials.';
+                    loginErrorAlert.classList.remove('d-none', 'alert-danger');
+                    loginErrorAlert.classList.add('alert-success');
+                    setTimeout(() => {
+                        loginErrorAlert.classList.add('d-none');
+                        loginErrorAlert.classList.remove('alert-success');
+                    }, 3000);
+
                     return { success: true };
                 } else {
                     // Registration failed
