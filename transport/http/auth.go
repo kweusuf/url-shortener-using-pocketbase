@@ -1,9 +1,10 @@
 package httproutes
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
@@ -61,7 +62,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		token, err := tokenObj.SignedString([]byte(secret))
 		if err != nil {
-			log.Printf("Failed to generate auth token: %v", err)
+			log.Info("Failed to generate auth token: %v", err)
 			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: "Failed to generate authentication token",
 			})
@@ -79,7 +80,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 	})
 
 	// Add debug logging to help troubleshoot
-	log.Printf("Registering auth routes: /api/auth/login")
+	log.Info("Registering auth routes: /api/auth/login")
 
 	// POST /api/auth/login - User login
 	e.Router.POST("/api/auth/login", func(e *core.RequestEvent) error {
@@ -128,7 +129,7 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 		token, err := tokenObj.SignedString([]byte(secret))
 		if err != nil {
-			log.Printf("Failed to generate auth token: %v", err)
+			log.Info("Failed to generate auth token: %v", err)
 			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: "Failed to generate authentication token",
 			})

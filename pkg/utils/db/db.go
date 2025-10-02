@@ -1,8 +1,9 @@
 package db
 
 import (
-	"log"
 	"time"
+
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/models"
@@ -13,61 +14,61 @@ import (
 
 // InitDatabase creates the database table for storing URLs
 func InitDatabase(app *pocketbase.PocketBase) error {
-	log.Println(constants.InitializingDB)
+	log.Info(constants.InitializingDB)
 
 	// Initialize users collection first if it doesn't exist
 	if err := initUsersCollection(app); err != nil {
-		log.Printf("Error initializing users collection: %v", err)
+		log.Info("Error initializing users collection: %v", err)
 		return err
 	}
 
 	// Check if table exists
 	exists, err := checkTableExists(app)
 	if err != nil {
-		log.Printf("Error checking if table exists: %v", err)
+		log.Info("Error checking if table exists: %v", err)
 		return err
 	}
 
 	if !exists {
-		log.Println(constants.IndexCreated)
+		log.Info(constants.IndexCreated)
 		if err := createURLsTable(app); err != nil {
-			log.Printf("Error creating URLs table: %v", err)
+			log.Info("Error creating URLs table: %v", err)
 			return err
 		}
-		log.Println(constants.TableCreated)
+		log.Info(constants.TableCreated)
 	} else {
-		log.Println(constants.TableExists)
+		log.Info(constants.TableExists)
 		// Validate table schema
 		valid, err := validateTableSchema(app)
 		if err != nil {
-			log.Printf("Error validating table schema: %v", err)
+			log.Info("Error validating table schema: %v", err)
 			return err
 		}
 
 		if !valid {
-			log.Println(constants.TableSchemaInvalid)
+			log.Info(constants.TableSchemaInvalid)
 			if err := dropAndRecreateTable(app); err != nil {
-				log.Printf("Error recreating table: %v", err)
+				log.Info("Error recreating table: %v", err)
 				return err
 			}
-			log.Println(constants.TableRecreated)
+			log.Info(constants.TableRecreated)
 		} else {
-			log.Println(constants.TableSchemaValid)
+			log.Info(constants.TableSchemaValid)
 		}
 	}
 
 	// Create index if it doesn't exist
 	if err := createIndexIfNotExists(app); err != nil {
-		log.Printf("Error creating index: %v", err)
+		log.Info("Error creating index: %v", err)
 		return err
 	}
 
-	log.Println(constants.DatabaseInitialized)
-	log.Println(constants.DashboardNote)
-	log.Println(constants.DashboardStep1)
-	log.Println(constants.DashboardStep2)
-	log.Println(constants.DashboardStep3)
-	log.Println(constants.DashboardStep4)
+	log.Info(constants.DatabaseInitialized)
+	log.Info(constants.DashboardNote)
+	log.Info(constants.DashboardStep1)
+	log.Info(constants.DashboardStep2)
+	log.Info(constants.DashboardStep3)
+	log.Info(constants.DashboardStep4)
 	return nil
 }
 
@@ -78,7 +79,7 @@ func initUsersCollection(app *pocketbase.PocketBase) error {
 	// Check if users collection already exists
 	_, err := app.FindCollectionByNameOrId(collectionName)
 	if err == nil {
-		log.Println("Users collection already exists")
+		log.Info("Users collection already exists")
 		return nil
 	}
 
@@ -94,11 +95,11 @@ func initUsersCollection(app *pocketbase.PocketBase) error {
 	// Save the collection
 	err = app.Save(collection)
 	if err != nil {
-		log.Printf("Error creating users collection: %v", err)
+		log.Info("Error creating users collection: %v", err)
 		return err
 	}
 
-	log.Println("Successfully created auth collection 'users'")
+	log.Info("Successfully created auth collection 'users'")
 	return nil
 }
 
@@ -110,7 +111,7 @@ func checkTableExists(app *pocketbase.PocketBase) (bool, error) {
 // validateTableSchema checks if the table has the correct structure
 func validateTableSchema(app *pocketbase.PocketBase) (bool, error) {
 	// FOR TESTING: Always return invalid to force recreation
-	log.Print("Forcing table schema recreation for testing")
+	log.Info("Forcing table schema recreation for testing")
 	return false, nil
 }
 
@@ -119,7 +120,7 @@ func createURLsTable(app *pocketbase.PocketBase) error {
 	// Check if collection already exists
 	existingCollection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err == nil && existingCollection != nil {
-		log.Println("Collection 'urls' already exists, skipping creation")
+		log.Info("Collection 'urls' already exists, skipping creation")
 		return nil
 	}
 
@@ -169,11 +170,11 @@ func createURLsTable(app *pocketbase.PocketBase) error {
 
 	err = app.Save(collection)
 	if err != nil {
-		log.Printf("Error creating collection: %v", err)
+		log.Info("Error creating collection: %v", err)
 		return err
 	}
 
-	log.Println("Successfully created 'urls' collection")
+	log.Info("Successfully created 'urls' collection")
 	return nil
 }
 
@@ -182,17 +183,17 @@ func dropAndRecreateTable(app *pocketbase.PocketBase) error {
 	// Find the existing collection
 	existingCollection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
-		log.Printf("Collection not found, creating new one: %v", err)
+		log.Info("Collection not found, creating new one: %v", err)
 		return createURLsTable(app)
 	}
 
 	// Delete the existing collection
 	if err := app.Delete(existingCollection); err != nil {
-		log.Printf("Error deleting existing collection: %v", err)
+		log.Info("Error deleting existing collection: %v", err)
 		return err
 	}
 
-	log.Println("Successfully deleted existing 'urls' collection")
+	log.Info("Successfully deleted existing 'urls' collection")
 
 	// Create new collection
 	return createURLsTable(app)
@@ -216,7 +217,7 @@ func createIndexIfNotExists(app *pocketbase.PocketBase) error {
 	}
 
 	if !indexExists {
-		log.Println("Creating index on short_code...")
+		log.Info("Creating index on short_code...")
 		collection.AddIndex(constants.IndexNameShortCode, true, constants.ColumnShortCode, "")
 		collection.AddIndex(constants.IndexNameUserID, false, constants.ColumnUserID, "")
 		err = app.Save(collection)
@@ -261,7 +262,7 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 
 		if updatedTime.Before(cutoffTime) {
 			if err := app.Delete(record); err != nil {
-				log.Printf("Error deleting old URL record %s: %v", record.Id, err)
+				log.Info("Error deleting old URL record %s: %v", record.Id, err)
 				continue
 			}
 			deletedCount++
@@ -270,7 +271,7 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 
 	// Log how many rows were deleted
 	if deletedCount > 0 {
-		log.Printf("Cleaned up %d old URLs (not accessed for more than 1 hour)", deletedCount)
+		log.Info("Cleaned up %d old URLs (not accessed for more than 1 hour)", deletedCount)
 	}
 
 	return nil
@@ -278,15 +279,15 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 
 // StoreURLInDB stores URL data in PocketBase database
 func StoreURLInDB(app *pocketbase.PocketBase, shortCode, originalURL, userID string) error {
-	log.Printf("StoreURLInDB: Attempting to store URL with shortCode=%s, userID=%s", shortCode, userID)
+	log.Info("StoreURLInDB: Attempting to store URL with shortCode=%s, userID=%s", shortCode, userID)
 
 	// Get the URLs collection
 	collection, err := app.FindCollectionByNameOrId(constants.TableName)
 	if err != nil {
-		log.Printf("StoreURLInDB: Failed to get collection '%s': %v", constants.TableName, err)
+		log.Info("StoreURLInDB: Failed to get collection '%s': %v", constants.TableName, err)
 		return err
 	}
-	log.Printf("StoreURLInDB: Got collection: %v", collection.Name)
+	log.Info("StoreURLInDB: Got collection: %v", collection.Name)
 
 	// Create record (PocketBase auto-generates ID)
 	record := core.NewRecord(collection)
@@ -299,18 +300,18 @@ func StoreURLInDB(app *pocketbase.PocketBase, shortCode, originalURL, userID str
 	// Don't set clicks at all - let it use the database default
 	// Don't set id - it will be auto-generated
 
-	log.Printf("StoreURLInDB: Created record with fields: shortCode=%s, originalURL=%s, userID=%s",
+	log.Info("StoreURLInDB: Created record with fields: shortCode=%s, originalURL=%s, userID=%s",
 		record.GetString(constants.ColumnShortCode),
 		record.GetString(constants.ColumnOriginalURL),
 		record.GetString(constants.ColumnUserID))
 
 	// Save without the id field set
 	if err := app.Save(record); err != nil {
-		log.Printf("StoreURLInDB: Failed to save record: %v", err)
+		log.Info("StoreURLInDB: Failed to save record: %v", err)
 		return err
 	}
 
-	log.Printf("StoreURLInDB: Successfully created URL with AutoID: %s", record.Id)
+	log.Info("StoreURLInDB: Successfully created URL with AutoID: %s", record.Id)
 	return nil
 }
 
@@ -404,7 +405,7 @@ func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int, userID string) (
 		map[string]interface{}{constants.ParamUserID: userID},
 	)
 	if err != nil {
-		log.Printf("Database error in GetRecentURLsFromDB: %v", err)
+		log.Info("Database error in GetRecentURLsFromDB: %v", err)
 		return nil, err
 	}
 
@@ -415,7 +416,7 @@ func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int, userID string) (
 		// Parse the created timestamp
 		createdAt, err := time.Parse(constants.TimeFormat, record.GetString(constants.ColumnCreated))
 		if err != nil {
-			log.Printf("Error parsing created timestamp %s: %v", record.GetString(constants.ColumnCreated), err)
+			log.Info("Error parsing created timestamp %s: %v", record.GetString(constants.ColumnCreated), err)
 			createdAt = time.Now().UTC()
 		}
 
@@ -478,7 +479,7 @@ func GetUserURLsFromDB(app *pocketbase.PocketBase, userID string) ([]map[string]
 		map[string]interface{}{constants.ParamUserID: userID},
 	)
 	if err != nil {
-		log.Printf("Database error in GetUserURLsFromDB: %v", err)
+		log.Info("Database error in GetUserURLsFromDB: %v", err)
 		return nil, err
 	}
 
@@ -489,7 +490,7 @@ func GetUserURLsFromDB(app *pocketbase.PocketBase, userID string) ([]map[string]
 		// Parse the created timestamp
 		createdAt, err := time.Parse(constants.TimeFormat, record.GetString(constants.ColumnCreated))
 		if err != nil {
-			log.Printf("Error parsing created timestamp %s: %v", record.GetString(constants.ColumnCreated), err)
+			log.Info("Error parsing created timestamp %s: %v", record.GetString(constants.ColumnCreated), err)
 			createdAt = time.Now().UTC()
 		}
 

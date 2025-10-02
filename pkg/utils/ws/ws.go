@@ -2,9 +2,10 @@ package ws
 
 import (
 	"encoding/json"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/gorilla/websocket"
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
@@ -34,7 +35,7 @@ func (h *Hub) Run() {
 			h.Mutex.Lock()
 			h.Clients[client] = true
 			h.Mutex.Unlock()
-			log.Printf("Client connected: %s", client.ID)
+			log.Info("Client connected: %s", client.ID)
 
 		case client := <-h.Unregister:
 			h.Mutex.Lock()
@@ -43,7 +44,7 @@ func (h *Hub) Run() {
 				close(client.Send)
 			}
 			h.Mutex.Unlock()
-			log.Printf("Client disconnected: %s", client.ID)
+			log.Info("Client disconnected: %s", client.ID)
 
 		case message := <-h.Broadcast:
 			h.Mutex.Lock()
@@ -69,7 +70,7 @@ func (c *Client) WritePump(hub *Hub) {
 
 	for message := range c.Send {
 		if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			log.Printf(constants.WSWriteError+" %v", err)
+			log.Info(constants.WSWriteError+" %v", err)
 			return
 		}
 	}
@@ -89,7 +90,7 @@ func (c *Client) ReadPump(hub *Hub) {
 		_, _, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf(constants.WSReadError+" %v", err)
+				log.Info(constants.WSReadError+" %v", err)
 			}
 			break
 		}
@@ -109,14 +110,14 @@ func (h *Hub) BroadcastStatsUpdate(shortCode string, clicks int) {
 
 	message, err := json.Marshal(update)
 	if err != nil {
-		log.Printf(constants.WSMarshalError+" %v", err)
+		log.Info(constants.WSMarshalError+" %v", err)
 		return
 	}
 
 	select {
 	case h.Broadcast <- message:
 	default:
-		log.Println(constants.WSBroadcastFull)
+		log.Info(constants.WSBroadcastFull)
 	}
 }
 

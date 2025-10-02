@@ -2,9 +2,10 @@ package auth
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/pocketbase/pocketbase"
@@ -110,11 +111,11 @@ func AuthenticateUser(app *pocketbase.PocketBase, email, password string) (*core
 	// Get the users collection
 	collection, err := app.FindCollectionByNameOrId("users")
 	if err != nil {
-		log.Printf("AuthenticateUser: Failed to get users collection: %v", err)
+		log.Info("AuthenticateUser: Failed to get users collection: %v", err)
 		return nil, err
 	}
 
-	log.Printf("AuthenticateUser: Looking for user with email: %s", email)
+	log.Info("AuthenticateUser: Looking for user with email: %s", email)
 
 	// Find user by email - try to find auth record directly
 	record, err := app.FindFirstRecordByFilter(
@@ -123,42 +124,42 @@ func AuthenticateUser(app *pocketbase.PocketBase, email, password string) (*core
 		nil,
 	)
 	if err != nil {
-		log.Printf("AuthenticateUser: FindFirstRecordByFilter failed: %v", err)
+		log.Info("AuthenticateUser: FindFirstRecordByFilter failed: %v", err)
 		return nil, errors.New(constants.ErrorInvalidCredentials)
 	}
 
 	if record == nil {
-		log.Printf("AuthenticateUser: No record found for email: %s", email)
+		log.Info("AuthenticateUser: No record found for email: %s", email)
 		return nil, errors.New(constants.ErrorInvalidCredentials)
 	}
 
-	log.Printf("AuthenticateUser: Record found, ID: %s", record.Id)
+	log.Info("AuthenticateUser: Record found, ID: %s", record.Id)
 
 	// Debug: Log all fields in the record
-	log.Printf("AuthenticateUser: Record fields: %+v", record)
+	log.Info("AuthenticateUser: Record fields: %+v", record)
 
 	// Verify password hash directly
 	storedHash := record.GetString("password")
-	log.Printf("AuthenticateUser: Password field value: '%s'", storedHash)
+	log.Info("AuthenticateUser: Password field value: '%s'", storedHash)
 	if storedHash == "" {
-		log.Printf("AuthenticateUser: Stored hash is empty - checking other password fields")
+		log.Info("AuthenticateUser: Stored hash is empty - checking other password fields")
 		// Try other possible field names
 		storedHash = record.GetString("passwd")
 		if storedHash == "" {
 			storedHash = record.GetString("password_hash")
 		}
 		if storedHash == "" {
-			log.Printf("AuthenticateUser: No password hash found in any field")
+			log.Info("AuthenticateUser: No password hash found in any field")
 			return nil, errors.New(constants.ErrorInvalidCredentials)
 		}
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)); err != nil {
-		log.Printf("AuthenticateUser: Password verification failed: %v", err)
+		log.Info("AuthenticateUser: Password verification failed: %v", err)
 		return nil, errors.New(constants.ErrorInvalidCredentials)
 	}
 
-	log.Printf("AuthenticateUser: Password verification successful")
+	log.Info("AuthenticateUser: Password verification successful")
 	return record, nil
 }
 

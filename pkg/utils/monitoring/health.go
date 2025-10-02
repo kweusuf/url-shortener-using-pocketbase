@@ -9,7 +9,6 @@ import (
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/models"
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
 	"github.com/pocketbase/pocketbase"
 )
 
@@ -202,18 +201,19 @@ func (hc *HealthChecker) getSystemInfo(totalTime time.Duration) models.SystemInf
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
-	// Get database info
-	dbInfo := db.GetDatabaseInfo(hc.app)
+	// // Get database info
+	// dbInfo := db.GetDatabaseInfo()
 
-	return models.SystemInfo{
-		GoVersion:  runtime.Version(),
-		Goroutines: runtime.NumGoroutine(),
-		MemoryUsage: models.MemoryStats{
-			AllocatedBytes:      memStats.Alloc,
-			TotalAllocatedBytes: memStats.TotalAlloc,
-			SystemMemoryBytes:   memStats.Sys,
-			GCRuns:              memStats.NumGC,
-		},
-		DatabaseInfo: dbInfo,
-	}
+	// return models.SystemInfo{
+	// 	GoVersion:  runtime.Version(),
+	// 	Goroutines: runtime.NumGoroutine(),
+	// 	MemoryUsage: models.MemoryStats{
+	// 		AllocatedBytes:      memStats.Alloc,
+	// 		TotalAllocatedBytes: memStats.TotalAlloc,
+	// 		SystemMemoryBytes:   memStats.Sys,
+	// 		GCRuns:              memStats.NumGC,
+	// 	},
+	// 	DatabaseInfo: dbInfo,
+	// }
+	return models.SystemInfo{}
 }

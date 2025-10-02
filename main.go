@@ -1,9 +1,10 @@
 package main
 
 import (
-	"log"
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
+	logutil "github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
 	httproutes "github.com/kweusuf/pocketbase-demo/transport/http"
 	wstransport "github.com/kweusuf/pocketbase-demo/transport/ws"
@@ -12,6 +13,11 @@ import (
 )
 
 func main() {
+	// ctx := context.Background()
+
+	// Set global log level
+	logutil.InitializeLogging()
+
 	app := pocketbase.New()
 
 	// Start the cleanup scheduler for old URLs
@@ -37,6 +43,11 @@ func main() {
 			return err
 		}
 
+		// Register static file routes
+		if err := httproutes.RegisterStatic(app, e); err != nil {
+			return err
+		}
+
 		// Register HTTP routes
 		if err := httproutes.RegisterHTTPRoutes(app, e); err != nil {
 			return err
@@ -51,6 +62,6 @@ func main() {
 	})
 
 	if err := app.Start(); err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 }

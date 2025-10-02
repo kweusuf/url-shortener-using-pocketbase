@@ -2,11 +2,12 @@ package httproutes
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/auth"
@@ -28,19 +29,6 @@ func handleClickBroadcast(shortCode string, urlData map[string]interface{}) {
 
 // RegisterHTTPRoutes registers all HTTP endpoints for the URL shortener service
 func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
-	// Serve static files from current directory
-	e.Router.GET("/", func(e *core.RequestEvent) error {
-		// Try to serve index.html first
-		http.ServeFile(e.Response, e.Request, "index.html")
-		return nil
-	})
-
-	// Serve other static files
-	e.Router.GET("/static/*", func(e *core.RequestEvent) error {
-		http.StripPrefix("/static/", http.FileServer(http.Dir(".")))
-		return nil
-	})
-
 	// Basic GET endpoint at /api/hello
 	e.Router.GET("/api/hello", func(e *core.RequestEvent) error {
 		return e.JSON(http.StatusOK, map[string]string{
@@ -204,24 +192,24 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 			if len(token) > 20 {
-				log.Printf("Shorten request received with JWT token (first 20 chars): %s...", token[:20])
+				log.Info("Shorten request received with JWT token (first 20 chars): %s...", token[:20])
 			} else {
-				log.Printf("Shorten request received with JWT token: %s...", token)
+				log.Info("Shorten request received with JWT token: %s...", token)
 			}
 
 			// TODO: Parse JWT token properly to extract user ID
 			// For now, try to use e.Auth if available
 			if e.Auth != nil && e.Auth.Collection().Name == "users" {
 				userID = e.Auth.Id
-				log.Printf("Using e.Auth user ID: %s", userID)
+				log.Info("Using e.Auth user ID: %s", userID)
 			} else {
 				// Temporary workaround - assume authenticated if token present
 				// In a real implementation, you'd parse the JWT
 				userID = "slcyfptd23bi6uz" // Use the tester user ID
-				log.Printf("Using assumed user ID (token present but e.Auth nil): %s", userID)
+				log.Info("Using assumed user ID (token present but e.Auth nil): %s", userID)
 			}
 		} else {
-			log.Printf("No authorization header found - anonymous URL creation")
+			log.Info("No authorization header found - anonymous URL creation")
 		}
 
 		data := struct {
@@ -266,18 +254,18 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 
 		// Generate short code
 		shortCode := generator.GenerateShortCode()
-		log.Printf("Generated short code: %s for URL: %s", shortCode, data.URL)
+		log.Info("Generated short code: %s for URL: %s", shortCode, data.URL)
 
 		// Store URL in PocketBase database with proper user association
 		err = db.StoreURLInDB(app, shortCode, data.URL, userID)
 		if err != nil {
-			log.Printf("Failed to store URL with userID %s: %v", userID, err)
+			log.Info("Failed to store URL with userID %s: %v", userID, err)
 			return e.JSON(http.StatusInternalServerError, map[string]string{
 				constants.JSONError: constants.StoreURLError,
 			})
 		}
 
-		log.Printf("Successfully stored URL: %s -> %s", shortCode, data.URL)
+		log.Info("Successfully stored URL: %s -> %s", shortCode, data.URL)
 		baseURL := urlutil.GetBaseURL()
 		return e.JSON(http.StatusCreated, map[string]interface{}{
 			constants.JSONOriginalURL: data.URL,
@@ -308,9 +296,9 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			// Increment click count in database
 			if err := db.IncrementClickCount(app, shortCode); err != nil {
 				// Log error but don't fail the request
-				log.Printf("Failed to increment click count in database: %v", err)
+				log.Info("Failed to increment click count in database: %v", err)
 			} else {
-				log.Printf("Incremented click count for short code: %s", shortCode)
+				log.Info("Incremented click count for short code: %s", shortCode)
 				// Broadcast the click update via WebSocket
 				handleClickBroadcast(shortCode, urlData)
 			}
