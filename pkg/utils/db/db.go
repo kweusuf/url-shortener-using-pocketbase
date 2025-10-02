@@ -126,13 +126,6 @@ func createURLsTable(app *pocketbase.PocketBase) error {
 	collection := core.NewBaseCollection(constants.TableName)
 
 	// Add fields with proper initialization
-	idField := &core.TextField{
-		Name:       constants.ColumnID,
-		PrimaryKey: true,
-		// Don't set Required=true for primary key - let PocketBase handle auto-generation
-	}
-	collection.Fields.Add(idField)
-
 	shortCodeField := &core.TextField{
 		Name:     constants.ColumnShortCode,
 		Required: true,
@@ -171,7 +164,7 @@ func createURLsTable(app *pocketbase.PocketBase) error {
 	collection.Fields.Add(updatedField)
 
 	// Add index for short_code field
-	collection.AddIndex(constants.IndexName, true, constants.ColumnShortCode, "")
+	collection.AddIndex(constants.IndexNameShortCode, true, constants.ColumnShortCode, "")
 
 	err = app.Save(collection)
 	if err != nil {
@@ -215,7 +208,7 @@ func createIndexIfNotExists(app *pocketbase.PocketBase) error {
 	// Check if index already exists
 	indexExists := false
 	for _, index := range collection.Indexes {
-		if index == constants.IndexName {
+		if index == constants.IndexNameShortCode {
 			indexExists = true
 			break
 		}
@@ -223,7 +216,8 @@ func createIndexIfNotExists(app *pocketbase.PocketBase) error {
 
 	if !indexExists {
 		log.Println("Creating index on short_code...")
-		collection.AddIndex(constants.IndexName, true, constants.ColumnShortCode, "")
+		collection.AddIndex(constants.IndexNameShortCode, true, constants.ColumnShortCode, "")
+		collection.AddIndex(constants.IndexNameUserID, false, constants.ColumnUserID, "")
 		err = app.Save(collection)
 		return err
 	}
@@ -293,16 +287,10 @@ func StoreURLInDB(app *pocketbase.PocketBase, shortCode, originalURL, userID str
 	}
 	log.Printf("StoreURLInDB: Got collection: %v", collection.Name)
 
-	// Create record and manually generate ID (same pattern as PocketBase)
+	// Create record (PocketBase auto-generates ID)
 	record := core.NewRecord(collection)
 
-	// Manually generate ID using PocketBase-style pattern
-	// PocketBase uses: 'r'||lower(hex(randomblob(7)))
-	record.Id = "r" + "0123456789abcdef012" // Simplified for testing
-	record.MarkAsNew()                      // Ensure it's marked as new
-
 	// Set the fields
-	record.Set(constants.ColumnID, record.Id) // Explicitly set since manually generated
 	record.Set(constants.ColumnShortCode, shortCode)
 	record.Set(constants.ColumnOriginalURL, originalURL)
 	record.Set(constants.ColumnUserID, userID)
@@ -400,19 +388,22 @@ func GetRecentURLsFromDB(app *pocketbase.PocketBase, limit int, userID string) (
 		return nil, err
 	}
 
-	// Find recent records using PocketBase's record API with sorting and limit
-	// For now, skip user filtering and return all recent URLs
-	// Proper filtering will be implemented once we figure out PocketBase filter syntax
+	// If no userID provided, return empty results for security
+	if userID == "" {
+		return []map[string]interface{}{}, nil
+	}
+
+	// Find recent records for the user using PocketBase's record API with sorting and limit
 	records, err := app.FindRecordsByFilter(
 		collection,
-		constants.NoFilter,
+		constants.ColumnUserID+" = {:userId}",
 		constants.CreatedSortDesc,
 		limit,
 		constants.NoOffset,
-		map[string]interface{}{},
+		map[string]interface{}{constants.ParamUserID: userID},
 	)
 	if err != nil {
-		log.Printf("Database error in getRecentURLsFromDB: %v", err)
+		log.Printf("Database error in GetRecentURLsFromDB: %v", err)
 		return nil, err
 	}
 

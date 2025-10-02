@@ -8,6 +8,8 @@ import (
 	"github.com/pocketbase/pocketbase"
 )
 
+const testUserID = "testuser123"
+
 // Mock PocketBase app for testing
 func createMockApp(t *testing.T) *pocketbase.PocketBase {
 	// Create a minimal PocketBase app for testing
@@ -265,7 +267,7 @@ func TestIncrementClickCount(t *testing.T) {
 	originalURL := "https://increment-test.com"
 
 	// Store URL first
-	err = StoreURLInDB(app, shortCode, originalURL)
+	err = StoreURLInDB(app, shortCode, originalURL, "")
 	if err != nil {
 		t.Fatalf("StoreURLInDB failed: %v", err)
 	}

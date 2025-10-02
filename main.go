@@ -183,39 +183,16 @@ func main() {
 		})
 
 		// GET endpoint to get recent URLs (requires authentication)
-		e.Router.GET("/api/recent", func(e *core.RequestEvent) error {
-			// Try to get user info from JWT token manually since e.Auth might not be set
-			authHeader := e.Request.Header.Get("Authorization")
-			userID := ""
-
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				token := strings.TrimPrefix(authHeader, "Bearer ")
-				// Parse JWT token to get user ID
-				// For now, just log it and proceed
-				if len(token) > 50 {
-					log.Printf("Received JWT token (first 50 chars): %s...", token[:50])
-				} else {
-					log.Printf("Received JWT token: %s", token)
-				}
-
-				// TODO: Actually parse the JWT token to extract user ID
-				// For now, let's hardcode getting a recent user or return empty
-				if token != "" {
-					// Try to find the most recent user with an auth token
-					// This is a temporary workaround
-					userID = "slcyfptd23bi6uz" // Hardcoded for testing
-				}
+		e.Router.GET("/api/recent", auth.RequireAuth(func(e *core.RequestEvent) error {
+			// Get authenticated user
+			user, err := auth.GetUserFromRequest(e)
+			if err != nil {
+				return e.JSON(constants.HTTPStatusUnauthorized, map[string]string{
+					constants.JSONError: err.Error(),
+				})
 			}
 
-			// Get user ID if authenticated, otherwise use empty string for anonymous URLs
-			if userID == "" && e.Auth != nil && e.Auth.Collection().Name == "users" {
-				userID = e.Auth.Id
-				log.Printf("Using e.Auth user ID: %s", userID)
-			} else if userID != "" {
-				log.Printf("Using extracted user ID: %s", userID)
-			} else {
-				log.Printf("No user ID found - will return recent URLs for all users")
-			}
+			userID := user.ID
 
 			// Fetch last 5 URLs for the authenticated user
 			recentURLs, err := db.GetRecentURLsFromDB(app, 5, userID)
@@ -233,7 +210,7 @@ func main() {
 			return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
 				constants.JSONUrls: recentURLs,
 			})
-		})
+		}))
 
 		// POST endpoint to create short URL
 		e.Router.POST("/api/shorten", func(e *core.RequestEvent) error {

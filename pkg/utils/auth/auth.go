@@ -4,7 +4,9 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -242,14 +244,33 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Set the authenticated user in the request context for immediate login
 		e.Auth = user
 
-		// Return success response
-		return e.JSON(constants.HTTPStatusCreated, map[string]interface{}{
-			constants.JSONMessage: "User registered successfully",
-			constants.JSONUser: User{
+		// Generate JWT token manually
+		secret := "pocketbase-secret" // Use a consistent secret
+
+		claims := &jwt.MapClaims{
+			"id":           user.Id,
+			"type":         "authRecord",
+			"collectionId": user.Collection().Id,
+			"exp":          time.Now().Add(time.Hour * 24).Unix(), // 24 hours
+		}
+
+		tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		token, err := tokenObj.SignedString([]byte(secret))
+		if err != nil {
+			log.Printf("Failed to generate auth token: %v", err)
+			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+				constants.JSONError: "Failed to generate authentication token",
+			})
+		}
+
+		// Return success response with token
+		return e.JSON(constants.HTTPStatusCreated, AuthResponse{
+			User: User{
 				ID:       user.Id,
 				Email:    user.Email(),
 				Verified: user.GetBool("verified"),
 			},
+			Token: token,
 		})
 	})
 
@@ -290,14 +311,33 @@ func RegisterAuthRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		// Set the authenticated user in the request context for session persistence
 		e.Auth = user
 
-		// Return success response
-		return e.JSON(constants.HTTPStatusOK, map[string]interface{}{
-			constants.JSONMessage: "Login successful",
-			constants.JSONUser: User{
+		// Generate JWT token manually
+		secret := "pocketbase-secret" // Use a consistent secret
+
+		claims := &jwt.MapClaims{
+			"id":           user.Id,
+			"type":         "authRecord",
+			"collectionId": user.Collection().Id,
+			"exp":          time.Now().Add(time.Hour * 24).Unix(), // 24 hours
+		}
+
+		tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		token, err := tokenObj.SignedString([]byte(secret))
+		if err != nil {
+			log.Printf("Failed to generate auth token: %v", err)
+			return e.JSON(constants.HTTPStatusInternalServerError, map[string]string{
+				constants.JSONError: "Failed to generate authentication token",
+			})
+		}
+
+		// Return success response with token
+		return e.JSON(constants.HTTPStatusOK, AuthResponse{
+			User: User{
 				ID:       user.Id,
 				Email:    user.Email(),
 				Verified: user.GetBool("verified"),
 			},
+			Token: token,
 		})
 	})
 

@@ -3,7 +3,8 @@ package constants
 // Database constants
 const (
 	TableName           = "urls"
-	IndexName           = "idx_urls_short_code"
+	IndexNameShortCode  = "idx_urls_short_code"
+	IndexNameUserID     = "idx_urls_user_id"
 	DatabaseInitialized = "Database initialized successfully"
 	InitializingDB      = "Initializing database..."
 	TableCreated        = "URLs table created successfully"
