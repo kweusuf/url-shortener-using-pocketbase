@@ -5,7 +5,6 @@ import (
 
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
 	logutil "github.com/kweusuf/pocketbase-demo/pkg/utils/log"
-	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
 	httproutes "github.com/kweusuf/pocketbase-demo/transport/http"
 	wstransport "github.com/kweusuf/pocketbase-demo/transport/ws"
 	"github.com/pocketbase/pocketbase"
@@ -22,9 +21,6 @@ func main() {
 
 	// Start the cleanup scheduler for old URLs
 	db.StartCleanupScheduler(app)
-
-	// Start the WebSocket hub
-	go wsutil.GlobalHub.Run()
 
 	// Add custom routes
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {

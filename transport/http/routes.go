@@ -3,58 +3,40 @@ package httproutes
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
+	"github.com/kweusuf/pocketbase-demo/pkg/service"
+	"github.com/kweusuf/pocketbase-demo/pkg/utils/auth"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/auth"
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/db"
-	"github.com/kweusuf/pocketbase-demo/pkg/utils/generator"
-	urlutil "github.com/kweusuf/pocketbase-demo/pkg/utils/url"
-	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// handleClickBroadcast broadcasts URL click updates via WebSocket after incrementing clicks
-func handleClickBroadcast(shortCode string, urlData map[string]interface{}) {
-	if urlData[constants.ColumnClicks] != nil {
-		clicks := urlData[constants.ColumnClicks].(int) + 1
-		wsutil.GlobalHub.BroadcastStatsUpdate(shortCode, clicks)
-	}
-}
-
 // RegisterHTTPRoutes registers all HTTP endpoints for the URL shortener service
 func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
+	wsService := service.GlobalWSService
+	urlService := service.NewURLService(app, wsService)
+
 	// Basic GET endpoint at /api/hello
 	e.Router.GET("/api/hello", func(e *core.RequestEvent) error {
+		response := urlService.Hello()
 		return e.JSON(http.StatusOK, map[string]string{
-			constants.JSONMessage: constants.HelloMessage,
-			constants.JSONStatus:  constants.SuccessStatus,
+			constants.JSONMessage: response.Message,
+			constants.JSONStatus:  response.Status,
 		})
 	})
 
 	// Manual cleanup endpoint for testing TTL
 	e.Router.DELETE("/api/cleanup", func(e *core.RequestEvent) error {
-		cutoffTime := time.Now().Add(-1 * time.Hour)
-
-		result, err := app.DB().NewQuery(`
-			DELETE FROM urls
-			WHERE created < {:cutoffTime}
-		`).Bind(map[string]interface{}{
-			"cutoffTime": cutoffTime,
-		}).Execute()
-
+		response, err := urlService.CleanupURLs()
 		if err != nil {
 			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: constants.CleanupErrorMsg,
+				constants.JSONError: err.Error(),
 			})
 		}
-
-		rowsAffected, _ := result.RowsAffected()
 
 		// Set cache-busting headers
 		e.Response.Header().Set(constants.CacheControl, constants.NoCache)
@@ -62,10 +44,10 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
-			constants.JSONMessage:       constants.CleanupCompletedMsg,
-			constants.JSONRowsDeleted:   rowsAffected,
-			constants.JSONCutoffTime:    cutoffTime.Format(constants.TimeFormat),
-			constants.JSONCleanupReason: constants.ManualCleanup,
+			constants.JSONMessage:       response.Message,
+			constants.JSONRowsDeleted:   response.RowsDeleted,
+			constants.JSONCutoffTime:    response.CutoffTime,
+			constants.JSONCleanupReason: response.CleanupReason,
 		})
 	})
 
@@ -79,32 +61,12 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		// Get current click count
-		urlData, err := db.GetURLFromDB(app, shortCode)
-		if err != nil || urlData == nil {
+		response, err := urlService.TestClick(shortCode)
+		if err != nil {
 			return e.JSON(http.StatusNotFound, map[string]string{
-				constants.JSONError: constants.URLNotFound,
+				constants.JSONError: err.Error(),
 			})
 		}
-
-		currentClicks := urlData[constants.ColumnClicks].(int)
-
-		// Increment click count
-		if err := db.IncrementClickCount(app, shortCode); err != nil {
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: constants.IncrementError,
-			})
-		}
-
-		// Get updated click count
-		updatedData, err := db.GetURLFromDB(app, shortCode)
-		if err != nil || updatedData == nil {
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: constants.DatabaseError,
-			})
-		}
-
-		newClicks := updatedData[constants.ColumnClicks].(int)
 
 		// Set aggressive cache-busting headers
 		e.Response.Header().Set(constants.CacheControl, constants.NoCacheMaxAge)
@@ -114,11 +76,11 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.XTimestamp, fmt.Sprintf("%d", time.Now().UnixNano()))
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
-			constants.JSONShortCode:  shortCode,
-			constants.JSONPrevClicks: currentClicks,
-			constants.JSONCurrClicks: newClicks,
-			constants.JSONClicksInc:  newClicks - currentClicks,
-			constants.JSONTest:       constants.TestMessage,
+			constants.JSONShortCode:  response.ShortCode,
+			constants.JSONPrevClicks: response.PrevClicks,
+			constants.JSONCurrClicks: response.CurrClicks,
+			constants.JSONClicksInc:  response.ClicksInc,
+			constants.JSONTest:       response.Test,
 		})
 	})
 
@@ -132,44 +94,10 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		// Try database first
-		urlData, err := db.GetURLFromDB(app, shortCode)
-		if err == nil && urlData != nil {
-			// Set cache-busting headers
-			e.Response.Header().Set(constants.CacheControl, constants.NoCache)
-			e.Response.Header().Set(constants.Pragma, constants.NoCache)
-			e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
-
-			return e.JSON(http.StatusOK, map[string]interface{}{
-				constants.JSONShortCode:   shortCode,
-				constants.JSONOriginalURL: urlData[constants.ColumnOriginalURL].(string),
-				constants.JSONClicks:      urlData[constants.ColumnClicks].(int),
-				constants.JSONCreated:     urlData[constants.ColumnCreated].(time.Time).Format(constants.TimeFormat),
-			})
-		}
-
-		return e.JSON(http.StatusNotFound, map[string]string{
-			constants.JSONError: constants.URLNotFound,
-		})
-	})
-
-	// GET endpoint to get recent URLs (requires authentication)
-	e.Router.GET("/api/recent", auth.RequireAuth(func(e *core.RequestEvent) error {
-		// Get authenticated user
-		user, err := auth.GetUserFromRequest(e)
+		response, err := urlService.GetURLStats(shortCode)
 		if err != nil {
-			return e.JSON(http.StatusUnauthorized, map[string]string{
+			return e.JSON(http.StatusNotFound, map[string]string{
 				constants.JSONError: err.Error(),
-			})
-		}
-
-		userID := user.ID
-
-		// Fetch last 5 URLs for the authenticated user
-		recentURLs, err := db.GetRecentURLsFromDB(app, 5, userID)
-		if err != nil {
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: constants.FetchURLError,
 			})
 		}
 
@@ -179,7 +107,29 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 		e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
-			constants.JSONUrls: recentURLs,
+			constants.JSONShortCode:   response.ShortCode,
+			constants.JSONOriginalURL: response.OriginalURL,
+			constants.JSONClicks:      response.Clicks,
+			constants.JSONCreated:     response.Created,
+		})
+	})
+
+	// GET endpoint to get recent URLs (requires authentication)
+	e.Router.GET("/api/recent", auth.RequireAuth(func(e *core.RequestEvent) error {
+		response, err := urlService.GetRecentURLs(e)
+		if err != nil {
+			return e.JSON(http.StatusUnauthorized, map[string]string{
+				constants.JSONError: err.Error(),
+			})
+		}
+
+		// Set cache-busting headers
+		e.Response.Header().Set(constants.CacheControl, constants.NoCache)
+		e.Response.Header().Set(constants.Pragma, constants.NoCache)
+		e.Response.Header().Set(constants.Expires, constants.HeaderValueZero)
+
+		return e.JSON(http.StatusOK, map[string]interface{}{
+			constants.JSONUrls: response.URLs,
 		})
 	}))
 
@@ -222,55 +172,17 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		if data.URL == "" {
-			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: constants.URLRequired,
-			})
-		}
-
-		// Validate and normalize URL format
-		parsedURL, err := url.Parse(data.URL)
+		response, err := urlService.ShortenURL(data.URL, userID)
 		if err != nil {
 			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: constants.InvalidURLFormat,
+				constants.JSONError: err.Error(),
 			})
 		}
 
-		// Add https:// protocol if missing
-		if parsedURL.Scheme == "" {
-			// Check if it looks like it has a protocol but is missing
-			if strings.HasPrefix(data.URL, constants.HTTPProtocol) || strings.HasPrefix(data.URL, constants.HTTPSProtocol) {
-				return e.JSON(http.StatusBadRequest, map[string]string{
-					constants.JSONError: constants.InvalidURLFormat,
-				})
-			}
-			// Add https:// protocol for bare URLs
-			data.URL = constants.DefaultProtocol + data.URL
-		} else if parsedURL.Scheme != constants.HTTPScheme && parsedURL.Scheme != constants.HTTPSScheme {
-			return e.JSON(http.StatusBadRequest, map[string]string{
-				constants.JSONError: constants.HTTPSOnly,
-			})
-		}
-
-		// Generate short code
-		shortCode := generator.GenerateShortCode()
-		log.Info("Generated short code: %s for URL: %s", shortCode, data.URL)
-
-		// Store URL in PocketBase database with proper user association
-		err = db.StoreURLInDB(app, shortCode, data.URL, userID)
-		if err != nil {
-			log.Info("Failed to store URL with userID %s: %v", userID, err)
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONError: constants.StoreURLError,
-			})
-		}
-
-		log.Info("Successfully stored URL: %s -> %s", shortCode, data.URL)
-		baseURL := urlutil.GetBaseURL()
 		return e.JSON(http.StatusCreated, map[string]interface{}{
-			constants.JSONOriginalURL: data.URL,
-			constants.JSONShortCode:   shortCode,
-			constants.JSONShortURL:    baseURL + "/" + shortCode,
+			constants.JSONOriginalURL: response.OriginalURL,
+			constants.JSONShortCode:   response.ShortCode,
+			constants.JSONShortURL:    response.ShortURL,
 		})
 	})
 
@@ -284,36 +196,10 @@ func RegisterHTTPRoutes(app *pocketbase.PocketBase, e *core.ServeEvent) error {
 			})
 		}
 
-		var originalURL string
-		var found bool
-
-		// Try database first
-		urlData, err := db.GetURLFromDB(app, shortCode)
-		if err == nil && urlData != nil {
-			originalURL = urlData[constants.ColumnOriginalURL].(string)
-			found = true
-
-			// Increment click count in database
-			if err := db.IncrementClickCount(app, shortCode); err != nil {
-				// Log error but don't fail the request
-				log.Info("Failed to increment click count in database: %v", err)
-			} else {
-				log.Info("Incremented click count for short code: %s", shortCode)
-				// Broadcast the click update via WebSocket
-				handleClickBroadcast(shortCode, urlData)
-			}
-		}
-
-		if !found {
+		originalURL, err := urlService.RedirectURL(shortCode)
+		if err != nil {
 			return e.JSON(http.StatusNotFound, map[string]string{
-				constants.JSONErrorKey: constants.ErrorURLNotFound,
-			})
-		}
-
-		// Validate URL before redirecting
-		if originalURL == "" {
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				constants.JSONErrorKey: constants.ErrorInvalidURLStored,
+				constants.JSONErrorKey: err.Error(),
 			})
 		}
 

@@ -3,12 +3,12 @@ package ws
 import (
 	"net/http"
 
+	"github.com/kweusuf/pocketbase-demo/pkg/service"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/log"
 
 	"github.com/gorilla/websocket"
 	"github.com/kweusuf/pocketbase-demo/pkg/constants"
 	"github.com/kweusuf/pocketbase-demo/pkg/utils/generator"
-	wsutil "github.com/kweusuf/pocketbase-demo/pkg/utils/ws"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -22,11 +22,9 @@ var upgrader = websocket.Upgrader{
 // InitializeWebSocket initializes the WebSocket hub
 func InitializeWebSocket() {
 	// Start the global hub if it's not already running
-	// The GlobalHub is already initialized as a global variable
+	// The GlobalWSService is already initialized as a global variable
 	// We just need to make sure it's running
-	go func() {
-		wsutil.GlobalHub.Run()
-	}()
+	service.GlobalWSService.Start()
 }
 
 // HandleWebSocket handles WebSocket connections
@@ -41,19 +39,19 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clientID := generator.GeneratePocketBaseID()
-	client := &wsutil.Client{
+	client := &service.WSClient{
 		ID:   clientID,
 		Conn: conn,
 		Send: make(chan []byte, constants.LargeBatchSize),
 	}
 
-	wsutil.GlobalHub.Register <- client
+	service.GlobalWSService.RegisterClient(client)
 
 	// Start goroutine to write messages to WebSocket
-	go client.WritePump(wsutil.GlobalHub)
+	go client.WritePump(service.GlobalWSService.GetHub())
 
 	// Start goroutine to read messages from WebSocket
-	go client.ReadPump(wsutil.GlobalHub)
+	go client.ReadPump(service.GlobalWSService.GetHub())
 }
 
 // RegisterWSRoutes registers all WebSocket endpoints
