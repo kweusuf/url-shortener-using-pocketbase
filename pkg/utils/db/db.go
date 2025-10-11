@@ -110,9 +110,35 @@ func checkTableExists(app *pocketbase.PocketBase) (bool, error) {
 
 // validateTableSchema checks if the table has the correct structure
 func validateTableSchema(app *pocketbase.PocketBase) (bool, error) {
-	// FOR TESTING: Always return invalid to force recreation
-	log.Info("Forcing table schema recreation for testing")
-	return false, nil
+	collection, err := app.FindCollectionByNameOrId(constants.TableName)
+	if err != nil {
+		return false, err
+	}
+
+	// Check for required fields
+	requiredFields := []string{
+		constants.ColumnShortCode,
+		constants.ColumnOriginalURL,
+		constants.ColumnUserID,
+		constants.ColumnClicks,
+		constants.ColumnCreated,
+		constants.ColumnUpdated,
+	}
+
+	fieldMap := make(map[string]bool)
+	for _, field := range collection.Fields {
+		fieldMap[field.GetName()] = true
+	}
+
+	for _, field := range requiredFields {
+		if !fieldMap[field] {
+			log.Info("Missing field: %s", field)
+			return false, nil
+		}
+	}
+
+	// Schema is valid
+	return true, nil
 }
 
 // createURLsTable creates the URLs table with correct structure
@@ -248,21 +274,22 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 		return err
 	}
 
-	// Calculate cutoff time and delete old records manually
-	cutoffTime := time.Now().UTC().Add(-1 * time.Hour)
+	// Calculate cutoff time: now minus TTL duration
+	cutoffTime := time.Now().UTC().Add(-constants.URLExpirationHours * time.Hour)
 	deletedCount := 0
 
 	for _, record := range records {
-		// Parse the updated timestamp and compare
-		updatedStr := record.GetString(constants.ColumnUpdated)
-		updatedTime, err := time.Parse(constants.TimeFormat, updatedStr)
+		// Parse the created timestamp and compare with cutoff (created < cutoff means expired)
+		createdStr := record.GetString(constants.ColumnCreated)
+		createdTime, err := time.Parse(constants.TimeFormat, createdStr)
 		if err != nil {
+			log.Info("Error parsing created for record %s: %v", record.Id, err)
 			continue // Skip records with invalid timestamps
 		}
 
-		if updatedTime.Before(cutoffTime) {
+		if createdTime.Before(cutoffTime) {
 			if err := app.Delete(record); err != nil {
-				log.Info("Error deleting old URL record %s: %v", record.Id, err)
+				log.Info("Error deleting expired URL record %s: %v", record.Id, err)
 				continue
 			}
 			deletedCount++
@@ -271,7 +298,7 @@ func CleanupOldURLs(app *pocketbase.PocketBase) error {
 
 	// Log how many rows were deleted
 	if deletedCount > 0 {
-		log.Info("Cleaned up %d old URLs (not accessed for more than 1 hour)", deletedCount)
+		log.Info("Cleaned up %d expired URLs", deletedCount)
 	}
 
 	return nil
